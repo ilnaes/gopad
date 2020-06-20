@@ -115,10 +115,11 @@ func xform(o1, o2 []Op) []Op {
 			res[len(res)-1].loc += delta
 			j++
 		} else if o1[i].loc == o2[j].loc {
-			if !o1[i].add && !o2[i].add {
+			if !o1[i].add && !o2[j].add {
 				// two deletes so skip
 				j++
 				i++
+				delta--
 			} else {
 				// apply o1 first
 				if o1[i].add {

@@ -5,37 +5,53 @@ import (
 	"testing"
 )
 
-func TestApply(t *testing.T) {
-	s1 := []byte("caeqwhdoqi")
-	s2 := []byte("scqoid")
+func stringApply(s1, s2 string) (string, []Op) {
+	b1 := []byte(s1)
+	op := diff(b1, []byte(s2))
 
-	ops := diff(s1, s2)
+	res := append([]byte{}, b1...)
+	res = apply(res, op)
 
-	s3 := make([]byte, len(s1))
-	copy(s3, s1)
+	return string(res), op
+}
 
-	s3 = apply(s3, ops)
+func stringXform(s1, s2, s3 string) (string, [][]Op) {
+	b1 := []byte(s1)
+	op1 := diff(b1, []byte(s2))
+	op2 := diff(b1, []byte(s3))
 
-	if string(s3) != string(s2) {
-		t.Error(fmt.Sprintf("%s should be %s", s3, s1))
-	}
+	res := append([]byte{}, b1...)
+
+	res = apply(res, op1)
+	op3 := xform(op1, op2)
+	res = apply(res, op3)
+
+	ops := append([][]Op{}, op1)
+	ops = append(ops, op2)
+	ops = append(ops, op3)
+
+	return string(res), ops
 }
 
 func TestXform(t *testing.T) {
-	s1 := []byte("sad")
-	s2 := []byte("esad")
-	s3 := []byte("ade")
+	cases := [][]string{
+		{"sad", "esad", "ade", "eade"},
+		{"abcdef", "adf", "acf", "af"},
+		{"abcdef", "acf", "adf", "af"},
+		{"abc123456def", "abc456def", "abc12def", "abcdef"},
+		{"abc123456def", "abc6def", "abcdef", "abcdef"},
+		{"start: long string :end", "start: :end", "start: long text", "start:ext"},
+	}
 
-	op1 := diff(s1, s2)
-	op2 := diff(s1, s3)
-
-	op2 = xform(op1, op2)
-
-	s4 := append([]byte{}, s1...)
-	s4 = apply(s4, op1)
-	s4 = apply(s4, op2)
-
-	if string(s4) != "eade" {
-		t.Error(fmt.Sprintf("%s should be eade", s4))
+	for _, c := range cases {
+		if res, _ := stringApply(c[0], c[1]); res != c[1] {
+			t.Error(fmt.Sprintf("APPLY: %s should be %s", res, c[1]))
+		}
+		if res, _ := stringApply(c[0], c[2]); res != c[2] {
+			t.Error(fmt.Sprintf("APPLY: %s should be %s", res, c[2]))
+		}
+		if res, ops := stringXform(c[0], c[1], c[2]); res != c[3] {
+			t.Error(fmt.Sprintf("XFORM: %s should be %s\nOP1: %v\nOP2: %v\nOP3: %v", res, c[3], ops[0], ops[1], ops[2]))
+		}
 	}
 }
