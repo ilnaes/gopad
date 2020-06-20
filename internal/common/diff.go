@@ -15,6 +15,7 @@ func diff(s1, s2 []byte) []Op {
 	dp[0] = make([]int, len(s2)+1)
 
 	// DP to calculate diff
+	// TODO: maybe top-down
 	for j := 0; j < len(s2)+1; j++ {
 		dp[0][j] = j
 	}
@@ -121,13 +122,15 @@ func xform(o1, o2 []Op) []Op {
 				i++
 				delta--
 			} else {
-				// apply o1 first
+				// do add first
 				if o1[i].add {
 					delta++
+					i++
 				} else {
-					delta--
+					res = append(res, o2[j])
+					res[len(res)-1].loc += delta
+					j++
 				}
-				i++
 			}
 		} else {
 			if o1[i].add {

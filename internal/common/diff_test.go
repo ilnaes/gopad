@@ -40,7 +40,9 @@ func TestXform(t *testing.T) {
 		{"abcdef", "acf", "adf", "af"},
 		{"abc123456def", "abc456def", "abc12def", "abcdef"},
 		{"abc123456def", "abc6def", "abcdef", "abcdef"},
+		{"start: long string :end", "start: :end", "start: long abc", "start: abc"},
 		{"start: long string :end", "start: :end", "start: long text", "start:ext"},
+		{"start: long string :end", "start: :end", "start: long word", "start:wod"},
 	}
 
 	for _, c := range cases {
