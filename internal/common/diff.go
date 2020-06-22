@@ -15,7 +15,7 @@ func diff(s1, s2 []byte) []Op {
 	dp[0] = make([]int, len(s2)+1)
 
 	// DP to calculate diff
-	// TODO: maybe top-down
+	// TODO: maybe make top-down
 	for j := 0; j < len(s2)+1; j++ {
 		dp[0][j] = j
 	}
@@ -41,10 +41,10 @@ func diff(s1, s2 []byte) []Op {
 	// collect diff into slice
 	for i > 0 || j > 0 {
 		if i == 0 {
-			res = append(res, Op{add: true, loc: i, ch: s2[j-1]})
+			res = append(res, Op{Add: true, Loc: i, Ch: s2[j-1]})
 			j--
 		} else if j == 0 {
-			res = append(res, Op{add: false, loc: i - 1, ch: s1[i-1]})
+			res = append(res, Op{Add: false, Loc: i - 1, Ch: s1[i-1]})
 			i--
 		} else {
 			if s1[i-1] == s2[j-1] && dp[i][j] == dp[i-1][j-1] {
@@ -52,12 +52,12 @@ func diff(s1, s2 []byte) []Op {
 				j--
 			} else {
 				if dp[i][j] == dp[i][j-1]+1 {
-					// add s2[j-1]
-					res = append(res, Op{add: true, loc: i, ch: s2[j-1]})
+					// Add s2[j-1]
+					res = append(res, Op{Add: true, Loc: i, Ch: s2[j-1]})
 					j--
 				} else {
 					// resete s1[i-1]
-					res = append(res, Op{add: false, loc: i - 1, ch: s1[i-1]})
+					res = append(res, Op{Add: false, Loc: i - 1, Ch: s1[i-1]})
 					i--
 				}
 			}
@@ -77,7 +77,7 @@ func diff(s1, s2 []byte) []Op {
 	return res
 }
 
-// applies a set of operations (in increasing location
+// applies a set of operations (in increasing Location
 // order) to a byte slice
 func apply(s []byte, ops []Op) []byte {
 	res := []byte{}
@@ -85,11 +85,11 @@ func apply(s []byte, ops []Op) []byte {
 	i := 0
 
 	for _, op := range ops {
-		res = append(res, s[i:op.loc]...)
-		i = op.loc
+		res = append(res, s[i:op.Loc]...)
+		i = op.Loc
 
-		if op.add {
-			res = append(res, op.ch)
+		if op.Add {
+			res = append(res, op.Ch)
 		} else {
 			i++
 		}
@@ -102,7 +102,7 @@ func apply(s []byte, ops []Op) []byte {
 }
 
 // operational transform o2 in the event that o1 gets
-// applied first; both are in increasing loc order
+// applied first; both are in increasing Loc order
 func xform(o1, o2 []Op) []Op {
 	res := []Op{}
 
@@ -111,29 +111,29 @@ func xform(o1, o2 []Op) []Op {
 	delta := 0
 
 	for j < len(o2) {
-		if i == len(o1) || o1[i].loc > o2[j].loc {
+		if i == len(o1) || o1[i].Loc > o2[j].Loc {
 			res = append(res, o2[j])
-			res[len(res)-1].loc += delta
+			res[len(res)-1].Loc += delta
 			j++
-		} else if o1[i].loc == o2[j].loc {
-			if !o1[i].add && !o2[j].add {
+		} else if o1[i].Loc == o2[j].Loc {
+			if !o1[i].Add && !o2[j].Add {
 				// two deletes so skip
 				j++
 				i++
 				delta--
 			} else {
-				// do add first
-				if o1[i].add {
+				// do Add first
+				if o1[i].Add {
 					delta++
 					i++
 				} else {
 					res = append(res, o2[j])
-					res[len(res)-1].loc += delta
+					res[len(res)-1].Loc += delta
 					j++
 				}
 			}
 		} else {
-			if o1[i].add {
+			if o1[i].Add {
 				delta++
 			} else {
 				delta--
