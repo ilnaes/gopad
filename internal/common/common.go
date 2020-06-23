@@ -1,8 +1,25 @@
 package common
 
-type Handshake struct {
-	Doc    int64
-	Create bool
+type ResType int
+
+const (
+	Ack ResType = iota
+	DocRes
+	OpsRes
+	Error
+)
+
+type Request struct {
+	IsQuery bool
+	Ops     []Op
+	View    int
+}
+
+type Response struct {
+	Type ResType
+	Seq  int  // last seen seq (always included)
+	Doc  Doc  // current document for DocRes
+	Ops  []Op // ops since last view
 }
 
 type Op struct {
@@ -10,11 +27,13 @@ type Op struct {
 	Ch  byte
 	Add bool
 
-	Doc int
+	DocId int64
+	Uid   int64
+	Seq   int
 }
 
 type Doc struct {
-	Body []byte
-	View int64
-	Id   int64
+	Body  [][]byte
+	View  int
+	DocId int64
 }

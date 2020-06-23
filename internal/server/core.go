@@ -9,13 +9,14 @@ import (
 
 func Run(port int) {
 	server := Server{
-		docs: make(map[int64]*c.Doc, 0),
-		log:  []c.Op{},
+		Docs:      make(map[int64]*DocMeta, 0),
+		CommitLog: []c.Request{},
+		Log:       []c.Op{},
 	}
-	go server.run()
+	go server.update()
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/edit/{id}", server.edit).Methods("POST")
+	r.HandleFunc("/edit/{docid}/{uid}", server.edit).Methods("POST")
 	http.Handle("/", r)
 }
