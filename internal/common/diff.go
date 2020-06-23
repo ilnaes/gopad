@@ -103,7 +103,7 @@ func apply(s []byte, ops []Op) []byte {
 
 // operational transform o2 in the event that o1 gets
 // applied first; both are in increasing Loc order
-func xform(o1, o2 []Op) []Op {
+func Xform(o1, o2 []Op) []Op {
 	res := []Op{}
 
 	i := 0

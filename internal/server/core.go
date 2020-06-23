@@ -11,7 +11,6 @@ func Run(port int) {
 	server := Server{
 		Docs:      make(map[int64]*DocMeta, 0),
 		CommitLog: []c.Request{},
-		Log:       []c.Op{},
 	}
 	go server.update()
 

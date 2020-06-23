@@ -14,7 +14,7 @@ type Client struct {
 	conn  *websocket.Conn
 	alive bool
 
-	sync.Mutex
+	sync.Mutex // protects concurrent conn writes
 }
 
 func (c *Client) write(res co.Response) {
@@ -31,14 +31,27 @@ func (c *Client) handleQuery(view int) {
 	c.s.Lock()
 	if view > c.doc.Doc.View {
 		c.s.Unlock()
+
 		c.write(co.Response{
 			Type: co.Error,
 		})
 	} else if view < c.doc.Doc.View-len(c.doc.Log) {
-		// TODO: return whole document
-	} else {
-		res := append([]co.Op{}, c.doc.Log[len(c.doc.Log)-(c.doc.Doc.View-view):]...)
+		// view is from before the beginning of log
+		res := c.doc.Doc.Copy()
 		c.s.Unlock()
+
+		c.write(co.Response{
+			Type: co.DocRes,
+			Doc:  res,
+		})
+	} else {
+		// send log ops
+		l := len(c.doc.Log) - c.doc.Doc.View + view
+		res := make([][]co.Op, l)
+		copy(res, c.doc.Log[len(c.doc.Log)-(c.doc.Doc.View-view):])
+
+		c.s.Unlock()
+
 		c.write(co.Response{
 			Type: co.OpsRes,
 			Ops:  res,
@@ -50,38 +63,50 @@ func (c *Client) handleQuery(view int) {
 func (c *Client) handleOps(m co.Request) {
 	// TODO: welldef check ops (check docId, uid, seq ordering)
 
-	c.s.Lock()
-	if m.Ops[0].Seq > c.doc.SeenSeqs[c.uid]+1 {
-		// too high sequence number
-		// TODO: figure out error flagging
-		c.s.Unlock()
-		c.write(co.Response{
-			Type: co.Error,
-		})
+	if len(m.Ops) == 0 {
 		return
 	}
 
-	N := len(m.Ops)
-	if m.Ops[N-1].Seq > c.doc.SeenSeqs[c.uid] {
-		// something new
-		c.s.CommitLog = append(c.s.CommitLog, m)
-		c.doc.SeenSeqs[c.uid] = m.Ops[N-1].Seq
-	}
-	c.s.Unlock()
+	c.s.Lock()
+	if m.Ops[0][0].Seq > c.doc.SeenSeqs[c.uid]+1 {
+		// too high sequence number
+		// TODO: figure out error flagging
+		c.s.Unlock()
 
-	c.write(co.Response{
-		Type: co.Ack,
-		Seq:  m.Ops[len(m.Ops)-1].Seq,
-	})
+		c.write(co.Response{
+			Type: co.Error,
+		})
+	} else if m.View < c.doc.Doc.View-len(c.doc.Log) {
+		// view is from too far ago
+		res := c.doc.Doc.Copy()
+		c.s.Unlock()
+
+		c.write(co.Response{
+			Type: co.Outdated,
+			Doc:  res,
+		})
+	} else {
+		N := len(m.Ops)
+		lastSeq := m.Ops[N-1][0].Seq
+
+		if lastSeq > c.doc.SeenSeqs[c.uid] {
+			// something new
+			c.s.CommitLog = append(c.s.CommitLog, m)
+			c.doc.SeenSeqs[c.uid] = lastSeq
+		}
+		c.s.Unlock()
+
+		c.write(co.Response{
+			Type: co.Ack,
+			Seq:  lastSeq,
+		})
+	}
 }
 
 func (c *Client) interact() {
 	for c.alive {
 		var m co.Request
-		c.Lock()
-		err := c.conn.ReadJSON(&m)
-		c.Unlock()
-		if err != nil {
+		if err := c.conn.ReadJSON(&m); err != nil {
 			break
 		}
 

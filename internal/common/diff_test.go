@@ -23,7 +23,7 @@ func stringXform(s1, s2, s3 string) (string, [][]Op) {
 	res := append([]byte{}, b1...)
 
 	res = apply(res, op1)
-	op3 := xform(op1, op2)
+	op3 := Xform(op1, op2)
 	res = apply(res, op3)
 
 	ops := append([][]Op{}, op1)
