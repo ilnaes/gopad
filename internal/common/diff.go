@@ -79,7 +79,7 @@ func diff(s1, s2 []byte) []Op {
 
 // applies a set of operations (in increasing Location
 // order) to a byte slice
-func apply(s []byte, ops []Op) []byte {
+func Apply(s []byte, ops []Op) []byte {
 	res := []byte{}
 
 	i := 0

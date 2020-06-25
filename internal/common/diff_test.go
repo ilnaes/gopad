@@ -10,7 +10,7 @@ func stringApply(s1, s2 string) (string, []Op) {
 	op := diff(b1, []byte(s2))
 
 	res := append([]byte{}, b1...)
-	res = apply(res, op)
+	res = Apply(res, op)
 
 	return string(res), op
 }
@@ -22,9 +22,9 @@ func stringXform(s1, s2, s3 string) (string, [][]Op) {
 
 	res := append([]byte{}, b1...)
 
-	res = apply(res, op1)
+	res = Apply(res, op1)
 	op3 := Xform(op1, op2)
-	res = apply(res, op3)
+	res = Apply(res, op3)
 
 	ops := append([][]Op{}, op1)
 	ops = append(ops, op2)

@@ -20,9 +20,10 @@ type Request struct {
 
 type Response struct {
 	Type ResType
-	Seq  int    // last seen seq (always included)
-	Doc  Doc    // current document for DocRes
+	Body string // current document for DocRes
+	View int
 	Ops  [][]Op // ops since last view
+	Seq  int    // last seen seq (always included)
 }
 
 type Op struct {
@@ -36,21 +37,11 @@ type Op struct {
 }
 
 type Doc struct {
-	Body  string
+	Body  []byte
 	View  int
 	DocId int64
 }
 
 func (d Doc) ApplyOps(op []Op) {
-
-}
-
-func (d Doc) Copy() Doc {
-	res := Doc{
-		View:  d.View,
-		DocId: d.DocId,
-		Body:  d.Body,
-	}
-
-	return res
+	d.Body = Apply(d.Body, op)
 }

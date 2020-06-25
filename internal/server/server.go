@@ -2,6 +2,7 @@ package server
 
 import (
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -14,7 +15,7 @@ import (
 
 const (
 	UpdateInterval = 250 * time.Millisecond
-	UpdateTime     = 30 * time.Second
+	PruneInterval  = 30 * time.Second
 )
 
 var upgrader = websocket.Upgrader{
@@ -25,16 +26,15 @@ var upgrader = websocket.Upgrader{
 type DocMeta struct {
 	Doc c.Doc
 
-	Log         [][]c.Op
+	Log         [][]c.Op // one update is a collection of ops from one diff
 	SeenSeqs    map[int64]int
 	AppliedSeqs map[int64]int
+	NextDiscard int
 }
 
 type Server struct {
-	Docs         map[int64]*DocMeta
-	CommitLog    []c.Request
-	Discardpoint int
-	Commitpoint  int
+	Docs      map[int64]*DocMeta
+	CommitLog []c.Request // Paxos stand-in for now
 
 	sync.Mutex
 }
@@ -67,9 +67,26 @@ func (s *Server) handle(r c.Request) {
 	doc.AppliedSeqs[r.Uid] = doc.Log[len(doc.Log)-1][0].Seq
 }
 
+// deletes old ops from logs
+func (s *Server) prune() {
+	for {
+		s.Lock()
+		for _, d := range s.Docs {
+			d.Log = d.Log[d.NextDiscard:]
+			d.NextDiscard = len(d.Log)
+		}
+		s.Unlock()
+
+		time.Sleep(PruneInterval)
+	}
+}
+
 // applies commited requests to documents
 func (s *Server) update() {
+	// go s.prune()
+
 	for {
+		time.Sleep(UpdateInterval)
 		s.Lock()
 
 		for _, r := range s.CommitLog {
@@ -79,7 +96,6 @@ func (s *Server) update() {
 		s.CommitLog = []c.Request{}
 
 		s.Unlock()
-		time.Sleep(UpdateInterval)
 	}
 }
 
@@ -96,7 +112,9 @@ func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
 // set up websocket
 func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	docId, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
-	uid, err := strconv.ParseInt(mux.Vars(r)["uid"], 10, 64)
+
+	// random uids for now
+	uid := rand.Int63()
 	if err != nil {
 		http.Error(w, "Malformed id", http.StatusBadRequest)
 		return
@@ -118,7 +136,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	id, err := strconv.ParseInt(mux.Vars(r)["docid"], 10, 64)
 	if err != nil {
 		http.Error(w, "Malformed id", http.StatusBadRequest)
 		return
@@ -127,7 +145,7 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.Docs[id]; !ok {
 		s.Docs[id] = &DocMeta{
 			Doc: c.Doc{
-				Body:  "",
+				Body:  []byte{},
 				View:  0,
 				DocId: id,
 			},
@@ -138,5 +156,5 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.ServeFile(w, r, "/static/edit.html")
+	http.ServeFile(w, r, "static/edit.html")
 }

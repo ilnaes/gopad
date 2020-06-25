@@ -29,21 +29,25 @@ func (c *Client) write(res co.Response) {
 // handles document queries
 func (c *Client) handleQuery(view int) {
 	c.s.Lock()
+	seq := c.doc.SeenSeqs[c.uid]
 	if view > c.doc.Doc.View {
 		c.s.Unlock()
 
 		c.write(co.Response{
 			Type: co.Error,
+			Seq:  seq,
 		})
 	} else if view < c.doc.Doc.View-len(c.doc.Log) {
 		// view is from before the beginning of log
-		res := c.doc.Doc.Copy()
+		res := co.Response{
+			Type: co.DocRes,
+			Body: string(c.doc.Doc.Body),
+			View: c.doc.Doc.View,
+			Seq:  seq,
+		}
 		c.s.Unlock()
 
-		c.write(co.Response{
-			Type: co.DocRes,
-			Doc:  res,
-		})
+		c.write(res)
 	} else {
 		// send log ops
 		l := len(c.doc.Log) - c.doc.Doc.View + view
@@ -55,6 +59,7 @@ func (c *Client) handleQuery(view int) {
 		c.write(co.Response{
 			Type: co.OpsRes,
 			Ops:  res,
+			Seq:  seq,
 		})
 	}
 }
@@ -68,6 +73,7 @@ func (c *Client) handleOps(m co.Request) {
 	}
 
 	c.s.Lock()
+	seq := c.doc.SeenSeqs[c.uid]
 	if m.Ops[0][0].Seq > c.doc.SeenSeqs[c.uid]+1 {
 		// too high sequence number
 		// TODO: figure out error flagging
@@ -75,16 +81,19 @@ func (c *Client) handleOps(m co.Request) {
 
 		c.write(co.Response{
 			Type: co.Error,
+			Seq:  seq,
 		})
 	} else if m.View < c.doc.Doc.View-len(c.doc.Log) {
 		// view is from too far ago
-		res := c.doc.Doc.Copy()
+		res := co.Response{
+			Type: co.DocRes,
+			Body: string(c.doc.Doc.Body),
+			View: c.doc.Doc.View,
+			Seq:  seq,
+		}
 		c.s.Unlock()
 
-		c.write(co.Response{
-			Type: co.Outdated,
-			Doc:  res,
-		})
+		c.write(res)
 	} else {
 		N := len(m.Ops)
 		lastSeq := m.Ops[N-1][0].Seq
