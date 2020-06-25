@@ -1,0 +1,22 @@
+{
+  "name": "gopad",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilnaes/gopad.git"
+  },
+  "author": "Sean Li",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ilnaes/gopad/issues"
+  },
+  "homepage": "https://github.com/ilnaes/gopad#readme",
+  "devDependencies": {
+    "typescript": "^3.9.5"
+  }
+}
