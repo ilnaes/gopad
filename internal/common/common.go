@@ -1,13 +1,13 @@
 package common
 
-type ResType int
+type ResType string
 
 const (
-	Ack ResType = iota
-	DocRes
-	OpsRes
-	Error
-	Outdated
+	Ack      = "Ack"
+	DocRes   = "DocRes"
+	OpsRes   = "OpsRes"
+	Error    = "Error"
+	Outdated = "Outdated"
 )
 
 type Request struct {

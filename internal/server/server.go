@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -12,6 +13,17 @@ import (
 	"github.com/gorilla/websocket"
 	c "github.com/ilnaes/gopad/internal/common"
 )
+
+const editpage = `<html>
+    <head>
+        <script type="text/javascript" src="/static/main.js"></script>
+    </head>
+    <body>
+        <center>
+            <textarea id="textbox" name="textbox" rows="45" cols="150"></textarea>
+        </center>
+    </body>
+</html>`
 
 const (
 	UpdateInterval = 250 * time.Millisecond
@@ -111,7 +123,7 @@ func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
 
 // set up websocket
 func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
-	docId, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	docId, err := strconv.ParseInt(mux.Vars(r)["docid"], 10, 64)
 
 	// random uids for now
 	uid := rand.Int63()
@@ -155,6 +167,6 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 			AppliedSeqs: make(map[int64]int, 0),
 		}
 	}
-
-	http.ServeFile(w, r, "static/edit.html")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, editpage)
 }

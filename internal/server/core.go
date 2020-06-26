@@ -20,6 +20,7 @@ func Run(port int) {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/edit/{docid}", server.edit)
+	r.HandleFunc("/ws/{docid}", server.ws)
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 
 	srv := &http.Server{

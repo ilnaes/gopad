@@ -3,7 +3,6 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GORUN=$(GOCMD) run
-TSC=./node_modules/typescript/bin/tsc
 
 all: test
 test:
@@ -11,6 +10,6 @@ test:
 run: 
 	$(GORUN) cmd/gopad/main.go
 ts: $(shell find . -name "*.ts")
-	$(TSC)
+	npm run compile
 clean:
-	rm static/*.js
+	rm -rf static
