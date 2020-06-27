@@ -12,28 +12,30 @@ const (
 
 type Request struct {
 	IsQuery bool
-	Ops     [][]Op
 	View    int
 	DocId   int64
 	Uid     int64
+
+	Ops [][]Op
 }
 
 type Response struct {
 	Type ResType
-	Body string // current document for DocRes
 	View int
+	Seq  int // last seen seq (always included)
+
+	Body string // current document for DocRes
 	Ops  [][]Op // ops since last view
-	Seq  int    // last seen seq (always included)
 }
 
 type Op struct {
-	Loc int
-	Ch  byte
-	Add bool
-
 	DocId int64
 	Uid   int64
 	Seq   int
+
+	Loc int
+	Add bool
+	Ch  byte
 }
 
 type Doc struct {

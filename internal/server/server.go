@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -20,7 +19,7 @@ const editpage = `<html>
     </head>
     <body>
         <center>
-            <textarea id="textbox" name="textbox" rows="45" cols="150"></textarea>
+            <textarea id="textbox" name="textbox" rows="45" cols="150" disabled></textarea>
         </center>
     </body>
 </html>`
@@ -124,9 +123,6 @@ func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
 // set up websocket
 func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	docId, err := strconv.ParseInt(mux.Vars(r)["docid"], 10, 64)
-
-	// random uids for now
-	uid := rand.Int63()
 	if err != nil {
 		http.Error(w, "Malformed id", http.StatusBadRequest)
 		return
@@ -140,6 +136,19 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
+		return
+	}
+
+	_, res, err := conn.ReadMessage()
+	if err != nil {
+		log.Println(err)
+		conn.Close()
+		return
+	}
+	uid, err := strconv.ParseInt(string(res), 10, 64)
+	if err != nil {
+		log.Println(err)
+		conn.Close()
 		return
 	}
 
