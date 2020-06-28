@@ -1,6 +1,12 @@
 import { Op, State } from './main.js'
 
-export function diff(s1: string, s2: string, seq: number, uid: number): Op[] {
+export function diff(
+  s1: string,
+  s2: string,
+  seq: number,
+  uid: number,
+  view: number
+): Op[] {
   let dp = new Array(s1.length + 1)
   dp[0] = Array.from(Array(s2.length + 1).keys())
 
@@ -34,6 +40,7 @@ export function diff(s1: string, s2: string, seq: number, uid: number): Op[] {
         Ch: s2.charCodeAt(j - 1),
         Seq: seq,
         Uid: uid,
+        View: view,
       })
       j--
     } else if (j == 0) {
@@ -43,6 +50,7 @@ export function diff(s1: string, s2: string, seq: number, uid: number): Op[] {
         Ch: s1.charCodeAt(i - 1),
         Seq: seq,
         Uid: uid,
+        View: view,
       })
       i--
     } else {
@@ -58,16 +66,18 @@ export function diff(s1: string, s2: string, seq: number, uid: number): Op[] {
             Ch: s2.charCodeAt(j - 1),
             Seq: seq,
             Uid: uid,
+            View: view,
           })
           j--
         } else {
-          // resete s1[i-1]
+          // Delete s1[i-1]
           res.push({
             Add: false,
             Loc: i - 1,
             Ch: s1.charCodeAt(i - 1),
             Seq: seq,
             Uid: uid,
+            View: view,
           })
           i--
         }
@@ -134,7 +144,7 @@ export function applyString(base: string, ops: Op[]): string {
     i = op.Loc
 
     if (op.Add) {
-      res += op.Ch
+      res += String.fromCharCode(op.Ch)
     } else {
       i++
     }

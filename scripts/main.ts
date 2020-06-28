@@ -13,6 +13,7 @@ export type Op = {
 
   Seq: number
   Uid: number
+  View: number
 }
 
 export type Res = {

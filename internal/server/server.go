@@ -68,7 +68,10 @@ func (s *Server) handle(r c.Request) {
 	// xform
 	for _, op := range ops {
 		for _, op1 := range doc.Log[len(doc.Log)-(doc.Doc.View-r.View):] {
-			op = c.Xform(op1, op)
+			// TODO: check if should xform
+			if op[0].Uid != op1[0].Uid {
+				op = c.Xform(op1, op)
+			}
 		}
 
 		doc.Log = append(doc.Log, op)

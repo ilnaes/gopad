@@ -51,14 +51,14 @@ func (c *Client) handleQuery(view int) {
 		c.write(res)
 	} else {
 		// send log ops
-		l := len(c.doc.Log) - c.doc.Doc.View + view
-		res := make([][]co.Op, l)
+		res := make([][]co.Op, c.doc.Doc.View-view)
 		copy(res, c.doc.Log[len(c.doc.Log)-(c.doc.Doc.View-view):])
 
 		c.s.Unlock()
 
 		c.write(co.Response{
 			Type: co.OpsRes,
+			View: view,
 			Ops:  res,
 			Seq:  seq,
 		})

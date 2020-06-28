@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 type ResType string
 
 const (
@@ -33,8 +35,9 @@ type Op struct {
 	Add bool
 	Ch  byte
 
-	Seq int
-	Uid int64
+	Seq  int
+	Uid  int64
+	View int
 }
 
 type Doc struct {
@@ -45,5 +48,6 @@ type Doc struct {
 
 func (d *Doc) ApplyOps(op []Op) {
 	d.Body = Apply(d.Body, op)
+	fmt.Printf("DOC: %+v\n%s\n", op, string(d.Body))
 	d.View++
 }

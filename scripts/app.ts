@@ -1,7 +1,7 @@
 import { Req, Res, Op } from './main.js'
 import { applyString, xform, sleep } from './utils.js'
 
-const PULL_INTERVAL = 200
+const PULL_INTERVAL = 2000
 
 export class App {
   docId: number = -1
@@ -9,7 +9,7 @@ export class App {
 
   view: number = -1
   seq: number = 0
-  discardPoint: number = 0
+  discardPoint: number = -1
   commitPoint: number = 0
   opsPoint: number = 0
 
@@ -65,6 +65,7 @@ export class App {
     while (true) {
       // make sure to push in order
       if (this.opsPoint == seq) {
+        console.log(ops)
         this.ops.push(ops)
         this.opsPoint++
         break
@@ -76,7 +77,13 @@ export class App {
 
   // when textbox changes ask Worker to compute diff
   async handleEvent() {
-    this.worker.postMessage([this.uid, this.seq, this.prev, this.textbox.value])
+    this.worker.postMessage([
+      this.view,
+      this.uid,
+      this.seq,
+      this.prev,
+      this.textbox.value,
+    ])
     this.prev = this.textbox.value
     this.seq++
   }
@@ -98,7 +105,6 @@ export class App {
 
   async handleResp(event: MessageEvent) {
     let resp: Res = JSON.parse(event.data)
-    console.log(resp)
 
     if (this.view == -1 && resp.Type != 'DocRes') {
       return
@@ -119,22 +125,21 @@ export class App {
         break
       }
       case 'OpsRes': {
-        console.log(resp.Ops)
         if (this.view < resp.View) {
           break
         }
 
-        let pos: [number, number] = [
-          this.textbox.selectionStart,
-          this.textbox.selectionEnd,
-        ]
+        if (this.view < resp.View + resp.Ops.length) {
+          let pos: [number, number] = [
+            this.textbox.selectionStart,
+            this.textbox.selectionEnd,
+          ]
 
-        if (this.view > resp.View + resp.Ops.length) {
-          // remove ops that have been seen
+          // prune ops that have been seen
           for (let i = resp.Ops.length - 1; i >= 0; i--) {
             if (resp.Ops[i][0].Uid == this.uid) {
               this.ops = this.ops.splice(
-                resp.Ops[i][0].Seq - (this.seq - this.ops.length)
+                this.ops.length - (this.seq - resp.Ops[i][0].Seq - 1)
               )
               break
             }
@@ -152,10 +157,14 @@ export class App {
           }
 
           // update textbox
+          console.log('RES: ' + JSON.stringify(resp.Ops))
+          console.log('LOG: ' + JSON.stringify(this.ops))
           this.textbox.value = this.base
           for (let i = 0; i < this.ops.length; i++) {
-            // TODO:
+            this.textbox.value = applyString(this.textbox.value, this.ops[i])
           }
+
+          this.view = resp.View + resp.Ops.length
         }
         break
       }
