@@ -11,9 +11,8 @@ export type Op = {
   Ch: number
   Add: boolean
 
-  DocId: number
-  Uid: number
   Seq: number
+  Uid: number
 }
 
 export type Res = {

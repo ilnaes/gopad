@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -29,7 +30,7 @@ func (c *Client) write(res co.Response) {
 // handles document queries
 func (c *Client) handleQuery(view int) {
 	c.s.Lock()
-	seq := c.doc.SeenSeqs[c.uid]
+	seq := c.doc.NextSeq[c.uid]
 	if view > c.doc.Doc.View {
 		c.s.Unlock()
 
@@ -73,8 +74,8 @@ func (c *Client) handleOps(m co.Request) {
 	}
 
 	c.s.Lock()
-	seq := c.doc.SeenSeqs[c.uid]
-	if m.Ops[0][0].Seq > c.doc.SeenSeqs[c.uid]+1 {
+	seq := c.doc.NextSeq[c.uid]
+	if m.Ops[0][0].Seq > seq+1 {
 		// too high sequence number
 		// TODO: figure out error flagging
 		c.s.Unlock()
@@ -96,12 +97,13 @@ func (c *Client) handleOps(m co.Request) {
 		c.write(res)
 	} else {
 		N := len(m.Ops)
+
 		lastSeq := m.Ops[N-1][0].Seq
 
-		if lastSeq > c.doc.SeenSeqs[c.uid] {
+		if lastSeq >= c.doc.NextSeq[c.uid] {
 			// something new
 			c.s.CommitLog = append(c.s.CommitLog, m)
-			c.doc.SeenSeqs[c.uid] = lastSeq
+			c.doc.NextSeq[c.uid] = lastSeq + 1
 		}
 		c.s.Unlock()
 
@@ -116,6 +118,7 @@ func (c *Client) interact() {
 	for c.alive {
 		var m co.Request
 		if err := c.conn.ReadJSON(&m); err != nil {
+			log.Println(err)
 			break
 		}
 

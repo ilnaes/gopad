@@ -38,7 +38,7 @@ type DocMeta struct {
 	Doc c.Doc
 
 	Log         [][]c.Op // one update is a collection of ops from one diff
-	SeenSeqs    map[int64]int
+	NextSeq     map[int64]int
 	AppliedSeqs map[int64]int
 	NextDiscard int
 }
@@ -59,7 +59,7 @@ func (s *Server) handle(r c.Request) {
 
 	// trim previously applied ops
 	for i, op := range r.Ops {
-		if op[0].Seq > doc.AppliedSeqs[r.Uid] {
+		if op[0].Seq >= doc.AppliedSeqs[r.Uid] {
 			ops = r.Ops[i:]
 			break
 		}
@@ -75,7 +75,7 @@ func (s *Server) handle(r c.Request) {
 		doc.Doc.ApplyOps(op)
 	}
 
-	doc.AppliedSeqs[r.Uid] = doc.Log[len(doc.Log)-1][0].Seq
+	doc.AppliedSeqs[r.Uid] = doc.Log[len(doc.Log)-1][0].Seq + 1
 }
 
 // deletes old ops from logs
@@ -172,7 +172,7 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 			},
 
 			Log:         [][]c.Op{},
-			SeenSeqs:    make(map[int64]int, 0),
+			NextSeq:     make(map[int64]int, 0),
 			AppliedSeqs: make(map[int64]int, 0),
 		}
 	}

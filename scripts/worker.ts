@@ -1,16 +1,11 @@
-import { Mutex } from './utils.js'
 import { Op } from './main.js'
-
-let mu = new Mutex()
-let log: Op[][] = []
+import { diff } from './utils.js'
 
 async function handleMessage(e: MessageEvent) {
-  let unlock = await mu.lock()
-  log.push(e.data)
-  console.log(log)
-  unlock()
+  let [uid, seq, prev, curr] = e.data
+  postMessage([diff(prev, curr, seq, uid), seq])
 }
 
 onmessage = (e) => {
-  handleMessage(e).then(() => {})
+  handleMessage(e)
 }

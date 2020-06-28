@@ -29,13 +29,12 @@ type Response struct {
 }
 
 type Op struct {
-	DocId int64
-	Uid   int64
-	Seq   int
-
 	Loc int
 	Add bool
 	Ch  byte
+
+	Seq int
+	Uid int64
 }
 
 type Doc struct {
@@ -44,6 +43,7 @@ type Doc struct {
 	DocId int64
 }
 
-func (d Doc) ApplyOps(op []Op) {
+func (d *Doc) ApplyOps(op []Op) {
 	d.Body = Apply(d.Body, op)
+	d.View++
 }

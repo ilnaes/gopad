@@ -1,5 +1,83 @@
 import { Op, State } from './main.js'
 
+export function diff(s1: string, s2: string, seq: number, uid: number): Op[] {
+  let dp = new Array(s1.length + 1)
+  dp[0] = Array.from(Array(s2.length + 1).keys())
+
+  // DP to calculate diff
+  // TODO: maybe make top-down
+
+  for (let i = 1; i < s1.length + 1; i++) {
+    dp[i] = new Array(s2.length + 1)
+    dp[i][0] = i
+
+    for (let j = 1; j < s2.length + 1; j++) {
+      dp[i][j] = Math.min(dp[i][j - 1], dp[i - 1][j]) + 1
+
+      if (s1[i - 1] == s2[j - 1] && dp[i - 1][j - 1] < dp[i][j]) {
+        dp[i][j] = dp[i - 1][j - 1]
+      }
+    }
+  }
+
+  let i = s1.length
+  let j = s2.length
+
+  let res: Op[] = []
+
+  // collect diff into slice
+  while (i > 0 || j > 0) {
+    if (i == 0) {
+      res.push({
+        Add: true,
+        Loc: i,
+        Ch: s2.charCodeAt(j - 1),
+        Seq: seq,
+        Uid: uid,
+      })
+      j--
+    } else if (j == 0) {
+      res.push({
+        Add: false,
+        Loc: i - 1,
+        Ch: s1.charCodeAt(i - 1),
+        Seq: seq,
+        Uid: uid,
+      })
+      i--
+    } else {
+      if (s1[i - 1] == s2[j - 1] && dp[i][j] == dp[i - 1][j - 1]) {
+        i--
+        j--
+      } else {
+        if (dp[i][j] == dp[i][j - 1] + 1) {
+          // Add s2[j-1]
+          res.push({
+            Add: true,
+            Loc: i,
+            Ch: s2.charCodeAt(j - 1),
+            Seq: seq,
+            Uid: uid,
+          })
+          j--
+        } else {
+          // resete s1[i-1]
+          res.push({
+            Add: false,
+            Loc: i - 1,
+            Ch: s1.charCodeAt(i - 1),
+            Seq: seq,
+            Uid: uid,
+          })
+          i--
+        }
+      }
+    }
+  }
+
+  return res.reverse()
+}
+
 export function xform(o1: Op[], o2: Op[]): Op[] {
   let res: Op[] = []
 
@@ -67,32 +145,6 @@ export function applyString(base: string, ops: Op[]): string {
   }
 
   return res
-}
-
-// taken from https://spin.atomicobject.com/2018/09/10/javascript-concurrency/
-export class Mutex {
-  private mutex = Promise.resolve()
-
-  lock(): PromiseLike<() => void> {
-    let begin: (unlock: () => void) => void = (unlock) => {}
-
-    this.mutex = this.mutex.then(() => {
-      return new Promise(begin)
-    })
-
-    return new Promise((res) => {
-      begin = res
-    })
-  }
-
-  async dispatch<T>(fn: (() => T) | (() => PromiseLike<T>)): Promise<T> {
-    const unlock = await this.lock()
-    try {
-      return await Promise.resolve(fn())
-    } finally {
-      unlock()
-    }
-  }
 }
 
 export function sleep(milliseconds: number) {
