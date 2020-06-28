@@ -15,7 +15,7 @@ import (
 
 const editpage = `<html>
     <head>
-        <script type="text/javascript" src="/static/main.js"></script>
+        <script src="/static/main.js" type="module"></script>
     </head>
     <body>
         <center>

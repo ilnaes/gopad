@@ -19,5 +19,6 @@
   "homepage": "https://github.com/ilnaes/gopad#readme",
   "devDependencies": {
     "typescript": "^3.9.5"
-  }
+  },
+  "dependencies": {}
 }

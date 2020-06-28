@@ -1,9 +1,16 @@
-// handles websocket messaging with server
+import { Mutex } from './utils.js'
+import { Op } from './main.js'
 
-onmessage = (e) => {
-  let message = e.data
+let mu = new Mutex()
+let log: Op[][] = []
+
+async function handleMessage(e: MessageEvent) {
+  let unlock = await mu.lock()
+  log.push(e.data)
+  console.log(log)
+  unlock()
 }
 
-const sleep = (milliseconds: number) => {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+onmessage = (e) => {
+  handleMessage(e).then(() => {})
 }

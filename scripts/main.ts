@@ -1,4 +1,4 @@
-import { App } from './app'
+import { App } from './app.js'
 
 export class State {
   body = ''
@@ -35,8 +35,7 @@ export type Req = {
 function main() {
   let split = document.location.pathname.lastIndexOf('/')
   let docId = parseInt(document.location.pathname.slice(split + 1))
-
-  let ws = new WebSocket('ws://localhost:8080/ws/' + docId.toString())
+  let app = new App(docId)
 }
 
 window.addEventListener('load', main)
