@@ -66,18 +66,17 @@ func (s *Server) handle(r c.Request) {
 	}
 
 	// xform
+	view := doc.Doc.View
 	for _, op := range ops {
-		for _, op1 := range doc.Log[len(doc.Log)-(doc.Doc.View-r.View):] {
-			// TODO: check if should xform
+		for _, op1 := range doc.Log[len(doc.Log)-(view-op[0].View):] {
 			if op[0].Uid != op1[0].Uid {
 				op = c.Xform(op1, op)
 			}
 		}
-
-		doc.Log = append(doc.Log, op)
 		doc.Doc.ApplyOps(op)
 	}
 
+	doc.Log = append(doc.Log, ops...)
 	doc.AppliedSeqs[r.Uid] = doc.Log[len(doc.Log)-1][0].Seq + 1
 }
 

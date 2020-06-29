@@ -131,7 +131,30 @@ export function xform(o1: Op[], o2: Op[]): Op[] {
 }
 
 export function applyPos(pos: [number, number], ops: Op[]): [number, number] {
-  return [0, 0]
+  let res: [number, number] = [...pos]
+  console.log(pos)
+  console.log(ops)
+  for (let j = 0; j < ops.length; j++) {
+    let op = ops[j]
+
+    if (op.Loc >= pos[1]) {
+      break
+    }
+
+    if (op.Add) {
+      if (pos[0] >= op.Loc) {
+        res[0] += 1
+      }
+      res[1] += 1
+    } else {
+      if (pos[0] > op.Loc) {
+        res[0] -= 1
+      }
+      res[1] -= 1
+    }
+  }
+
+  return res
 }
 
 export function applyString(base: string, ops: Op[]): string {

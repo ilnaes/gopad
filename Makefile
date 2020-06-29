@@ -9,7 +9,7 @@ test:
 	$(GOTEST) -v ./...
 run: 
 	$(GORUN) cmd/gopad/main.go
-ts: $(shell find . -name "*.ts")
+tsc: $(shell find . -name "*.ts")
 	npm run compile
 clean:
 	rm -rf static

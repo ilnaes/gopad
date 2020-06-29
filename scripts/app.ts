@@ -1,5 +1,5 @@
 import { Req, Res, Op } from './main.js'
-import { applyString, xform, sleep } from './utils.js'
+import { applyString, applyPos, xform, sleep } from './utils.js'
 
 const PULL_INTERVAL = 2000
 
@@ -116,11 +116,11 @@ export class App {
           this.view = resp.View
           this.seq = resp.Seq
           this.base = resp.Body
-          this.prev = resp.Body
 
           // TODO: diff and xform
           this.textbox.disabled = false
           this.textbox.value = resp.Body
+          this.prev = resp.Body
         }
         break
       }
@@ -153,16 +153,18 @@ export class App {
               for (let j = 0; j < this.ops.length; j++) {
                 this.ops[j] = xform(resp.Ops[i], this.ops[j])
               }
+              pos = applyPos(pos, resp.Ops[i])
             }
           }
 
           // update textbox
-          console.log('RES: ' + JSON.stringify(resp.Ops))
-          console.log('LOG: ' + JSON.stringify(this.ops))
           this.textbox.value = this.base
           for (let i = 0; i < this.ops.length; i++) {
             this.textbox.value = applyString(this.textbox.value, this.ops[i])
           }
+          this.prev = this.textbox.value
+          this.textbox.setSelectionRange(pos[0], pos[1])
+          // TODO: update cursor
 
           this.view = resp.View + resp.Ops.length
         }
