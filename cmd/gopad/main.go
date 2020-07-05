@@ -1,7 +1,7 @@
 package main
 
-import "github.com/ilnaes/gopad/internal/server"
+import "github.com/ilnaes/gopad/internal"
 
 func main() {
-	server.Run(8080)
+	internal.Run(8080)
 }

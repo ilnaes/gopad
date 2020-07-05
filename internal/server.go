@@ -1,4 +1,4 @@
-package server
+package internal
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	c "github.com/ilnaes/gopad/internal/common"
 )
 
 const editpage = `<html>
@@ -35,9 +34,9 @@ var upgrader = websocket.Upgrader{
 }
 
 type DocMeta struct {
-	Doc c.Doc
+	Doc Doc
 
-	Log         [][]c.Op // one update is a collection of ops from one diff
+	Log         [][]Op // one update is a collection of ops from one diff
 	NextSeq     map[int64]int
 	AppliedSeqs map[int64]int
 	NextDiscard int
@@ -45,17 +44,17 @@ type DocMeta struct {
 
 type Server struct {
 	Docs      map[int64]*DocMeta
-	CommitLog []c.Request // Paxos stand-in for now
+	CommitLog []Request // Paxos stand-in for now
 
 	sync.Mutex
 }
 
 // processes a request
 // called while holding lock
-func (s *Server) handle(r c.Request) {
+func (s *Server) handle(r Request) {
 	doc := s.Docs[r.DocId]
 
-	var ops [][]c.Op
+	var ops [][]Op
 
 	// trim previously applied ops
 	for i, op := range r.Ops {
@@ -70,7 +69,7 @@ func (s *Server) handle(r c.Request) {
 	for _, op := range ops {
 		for _, op1 := range doc.Log[len(doc.Log)-(view-op[0].View):] {
 			if op[0].Uid != op1[0].Uid {
-				op = c.Xform(op1, op)
+				op = Xform(op1, op)
 			}
 		}
 		doc.Doc.ApplyOps(op)
@@ -106,7 +105,7 @@ func (s *Server) update() {
 			s.handle(r)
 		}
 
-		s.CommitLog = []c.Request{}
+		s.CommitLog = []Request{}
 
 		s.Unlock()
 	}
@@ -167,13 +166,13 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 
 	if _, ok := s.Docs[id]; !ok {
 		s.Docs[id] = &DocMeta{
-			Doc: c.Doc{
+			Doc: Doc{
 				Body:  []byte{},
 				View:  0,
 				DocId: id,
 			},
 
-			Log:         [][]c.Op{},
+			Log:         [][]Op{},
 			NextSeq:     make(map[int64]int, 0),
 			AppliedSeqs: make(map[int64]int, 0),
 		}

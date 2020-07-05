@@ -11,7 +11,7 @@ export function diff(
   dp[0] = Array.from(Array(s2.length + 1).keys())
 
   // DP to calculate diff
-  // TODO: maybe make top-down
+  // TODO: trim beginning and end
 
   for (let i = 1; i < s1.length + 1; i++) {
     dp[i] = new Array(s2.length + 1)

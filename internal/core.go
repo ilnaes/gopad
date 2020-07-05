@@ -1,4 +1,4 @@
-package server
+package internal
 
 import (
 	"fmt"
@@ -7,13 +7,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	c "github.com/ilnaes/gopad/internal/common"
 )
 
 func Run(port int) {
 	server := Server{
 		Docs:      make(map[int64]*DocMeta, 0),
-		CommitLog: []c.Request{},
+		CommitLog: []Request{},
 	}
 	go server.update()
 

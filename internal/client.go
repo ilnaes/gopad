@@ -1,11 +1,10 @@
-package server
+package internal
 
 import (
 	"log"
 	"sync"
 
 	"github.com/gorilla/websocket"
-	co "github.com/ilnaes/gopad/internal/common"
 )
 
 type Client struct {
@@ -18,7 +17,7 @@ type Client struct {
 	sync.Mutex // protects concurrent conn writes
 }
 
-func (c *Client) write(res co.Response) {
+func (c *Client) write(res Response) {
 	c.Lock()
 	err := c.conn.WriteJSON(res)
 	c.Unlock()
@@ -34,14 +33,14 @@ func (c *Client) handleQuery(view int) {
 	if view > c.doc.Doc.View {
 		c.s.Unlock()
 
-		c.write(co.Response{
-			Type: co.Error,
+		c.write(Response{
+			Type: Error,
 			Seq:  seq,
 		})
 	} else if view < c.doc.Doc.View-len(c.doc.Log) {
 		// view is from before the beginning of log
-		res := co.Response{
-			Type: co.DocRes,
+		res := Response{
+			Type: DocRes,
 			Body: string(c.doc.Doc.Body),
 			View: c.doc.Doc.View,
 			Seq:  seq,
@@ -51,13 +50,13 @@ func (c *Client) handleQuery(view int) {
 		c.write(res)
 	} else {
 		// send log ops
-		res := make([][]co.Op, c.doc.Doc.View-view)
+		res := make([][]Op, c.doc.Doc.View-view)
 		copy(res, c.doc.Log[len(c.doc.Log)-(c.doc.Doc.View-view):])
 
 		c.s.Unlock()
 
-		c.write(co.Response{
-			Type: co.OpsRes,
+		c.write(Response{
+			Type: OpsRes,
 			View: view,
 			Ops:  res,
 			Seq:  seq,
@@ -66,7 +65,7 @@ func (c *Client) handleQuery(view int) {
 }
 
 // does basic checking and adds an Op slice to commit log
-func (c *Client) handleOps(m co.Request) {
+func (c *Client) handleOps(m Request) {
 	// TODO: welldef check ops (check docId, uid, seq ordering)
 
 	if len(m.Ops) == 0 {
@@ -80,14 +79,14 @@ func (c *Client) handleOps(m co.Request) {
 		// TODO: figure out error flagging
 		c.s.Unlock()
 
-		c.write(co.Response{
-			Type: co.Error,
+		c.write(Response{
+			Type: Error,
 			Seq:  seq,
 		})
 	} else if m.View < c.doc.Doc.View-len(c.doc.Log) {
 		// view is from too far ago
-		res := co.Response{
-			Type: co.DocRes,
+		res := Response{
+			Type: DocRes,
 			Body: string(c.doc.Doc.Body),
 			View: c.doc.Doc.View,
 			Seq:  seq,
@@ -107,8 +106,8 @@ func (c *Client) handleOps(m co.Request) {
 		}
 		c.s.Unlock()
 
-		c.write(co.Response{
-			Type: co.Ack,
+		c.write(Response{
+			Type: Ack,
 			Seq:  lastSeq,
 		})
 	}
@@ -116,7 +115,7 @@ func (c *Client) handleOps(m co.Request) {
 
 func (c *Client) interact() {
 	for c.alive {
-		var m co.Request
+		var m Request
 		if err := c.conn.ReadJSON(&m); err != nil {
 			log.Println(err)
 			break

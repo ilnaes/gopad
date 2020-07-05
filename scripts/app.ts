@@ -164,7 +164,6 @@ export class App {
           }
           this.prev = this.textbox.value
           this.textbox.setSelectionRange(pos[0], pos[1])
-          // TODO: update cursor
 
           this.view = resp.View + resp.Ops.length
         }

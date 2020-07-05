@@ -1,4 +1,4 @@
-package common
+package internal
 
 func min(a, b int) int {
 	if a < b {
