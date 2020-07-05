@@ -28,10 +28,12 @@ func (c *Client) write(res Response) {
 
 // handles document queries
 func (c *Client) handleQuery(view int) {
-	c.s.Lock()
+	c.s.docs.RLock()
+	c.doc.Lock()
 	seq := c.doc.NextSeq[c.uid]
 	if view > c.doc.Doc.View {
-		c.s.Unlock()
+		c.doc.Unlock()
+		c.s.docs.RUnlock()
 
 		c.write(Response{
 			Type: Error,
@@ -45,7 +47,8 @@ func (c *Client) handleQuery(view int) {
 			View: c.doc.Doc.View,
 			Seq:  seq,
 		}
-		c.s.Unlock()
+		c.doc.Unlock()
+		c.s.docs.RUnlock()
 
 		c.write(res)
 	} else {
@@ -53,7 +56,8 @@ func (c *Client) handleQuery(view int) {
 		res := make([][]Op, c.doc.Doc.View-view)
 		copy(res, c.doc.Log[len(c.doc.Log)-(c.doc.Doc.View-view):])
 
-		c.s.Unlock()
+		c.doc.Unlock()
+		c.s.docs.RUnlock()
 
 		c.write(Response{
 			Type: OpsRes,
@@ -72,12 +76,14 @@ func (c *Client) handleOps(m Request) {
 		return
 	}
 
-	c.s.Lock()
+	c.s.docs.RLock()
+	c.doc.Lock()
 	seq := c.doc.NextSeq[c.uid]
 	if m.Ops[0][0].Seq > seq+1 {
 		// too high sequence number
 		// TODO: figure out error flagging
-		c.s.Unlock()
+		c.doc.Unlock()
+		c.s.docs.RUnlock()
 
 		c.write(Response{
 			Type: Error,
@@ -91,7 +97,8 @@ func (c *Client) handleOps(m Request) {
 			View: c.doc.Doc.View,
 			Seq:  seq,
 		}
-		c.s.Unlock()
+		c.doc.Unlock()
+		c.s.docs.RUnlock()
 
 		c.write(res)
 	} else {
@@ -99,12 +106,15 @@ func (c *Client) handleOps(m Request) {
 
 		lastSeq := m.Ops[N-1][0].Seq
 
+		c.s.cl.Lock()
 		if lastSeq >= c.doc.NextSeq[c.uid] {
 			// something new
 			c.s.CommitLog = append(c.s.CommitLog, m)
 			c.doc.NextSeq[c.uid] = lastSeq + 1
 		}
-		c.s.Unlock()
+		c.s.cl.Unlock()
+		c.doc.Unlock()
+		c.s.docs.RUnlock()
 
 		c.write(Response{
 			Type: Ack,

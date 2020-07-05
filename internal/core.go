@@ -10,10 +10,7 @@ import (
 )
 
 func Run(port int) {
-	server := Server{
-		Docs:      make(map[int64]*DocMeta, 0),
-		CommitLog: []Request{},
-	}
+	server := NewServer(port, false)
 	go server.update()
 
 	r := mux.NewRouter()

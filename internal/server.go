@@ -36,23 +36,31 @@ var upgrader = websocket.Upgrader{
 type DocMeta struct {
 	Doc Doc
 
-	Log         [][]Op // one update is a collection of ops from one diff
-	NextSeq     map[int64]int
-	AppliedSeqs map[int64]int
+	Log         [][]Op        // one update is a collection of ops from one diff
+	NextSeq     map[int64]int // expected next seq from user
+	AppliedSeqs map[int64]int // all seqs up to this from user have been applied
+	UserViews   map[int64]int // user reported to have seen this
 	NextDiscard int
+
+	sync.Mutex // protects individual doc, must hold RLock of server.docs
 }
 
 type Server struct {
 	Docs      map[int64]*DocMeta
 	CommitLog []Request // Paxos stand-in for now
 
-	sync.Mutex
+	cl   sync.Mutex   // protects CommitLog
+	docs sync.RWMutex // W protects all docs, R needs to be held when locking just one doc
 }
 
 // processes a request
-// called while holding lock
+// called while holding s.docs lock
 func (s *Server) handle(r Request) {
 	doc := s.Docs[r.DocId]
+
+	if r.View > doc.UserViews[r.Uid] {
+		doc.UserViews[r.Uid] = r.View
+	}
 
 	var ops [][]Op
 
@@ -82,12 +90,12 @@ func (s *Server) handle(r Request) {
 // deletes old ops from logs
 func (s *Server) prune() {
 	for {
-		s.Lock()
+		s.cl.Lock()
 		for _, d := range s.Docs {
 			d.Log = d.Log[d.NextDiscard:]
 			d.NextDiscard = len(d.Log)
 		}
-		s.Unlock()
+		s.cl.Unlock()
 
 		time.Sleep(PruneInterval)
 	}
@@ -99,15 +107,16 @@ func (s *Server) update() {
 
 	for {
 		time.Sleep(UpdateInterval)
-		s.Lock()
+		s.cl.Lock()
+		tmp := s.CommitLog
+		s.CommitLog = []Request{}
+		s.cl.Unlock()
 
-		for _, r := range s.CommitLog {
+		s.docs.Lock()
+		for _, r := range tmp {
 			s.handle(r)
 		}
-
-		s.CommitLog = []Request{}
-
-		s.Unlock()
+		s.docs.Unlock()
 	}
 }
 
@@ -129,10 +138,13 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.docs.RLock()
 	if _, ok := s.Docs[docId]; !ok {
 		http.Error(w, "Malformed id", http.StatusBadRequest)
+		s.docs.RUnlock()
 		return
 	}
+	s.docs.RUnlock()
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -140,6 +152,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// wait for uid message
 	_, res, err := conn.ReadMessage()
 	if err != nil {
 		log.Println(err)
@@ -164,6 +177,8 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.docs.Lock()
+
 	if _, ok := s.Docs[id]; !ok {
 		s.Docs[id] = &DocMeta{
 			Doc: Doc{
@@ -175,8 +190,22 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 			Log:         [][]Op{},
 			NextSeq:     make(map[int64]int, 0),
 			AppliedSeqs: make(map[int64]int, 0),
+			UserViews:   make(map[int64]int, 0),
 		}
 	}
+
+	s.docs.Unlock()
+
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, editpage)
+}
+
+func NewServer(port int, restart bool) *Server {
+	s := new(Server)
+
+	if !restart {
+		s.Docs = make(map[int64]*DocMeta, 0)
+		s.CommitLog = []Request{}
+	}
+	return s
 }

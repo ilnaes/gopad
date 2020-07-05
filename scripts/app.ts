@@ -1,5 +1,5 @@
 import { Req, Res, Op } from './main.js'
-import { applyString, applyPos, xform, sleep } from './utils.js'
+import { diff, applyString, applyPos, xform, sleep } from './utils.js'
 
 const PULL_INTERVAL = 2000
 
@@ -112,16 +112,14 @@ export class App {
 
     switch (resp.Type) {
       case 'DocRes': {
-        if (resp.View > this.view) {
-          this.view = resp.View
-          this.seq = resp.Seq
-          this.base = resp.Body
+        // we are starting from new
+        this.view = resp.View
+        this.seq = resp.Seq
+        this.base = resp.Body
 
-          // TODO: diff and xform
-          this.textbox.disabled = false
-          this.textbox.value = resp.Body
-          this.prev = resp.Body
-        }
+        this.textbox.disabled = false
+        this.textbox.value = resp.Body
+        this.prev = resp.Body
         break
       }
       case 'OpsRes': {

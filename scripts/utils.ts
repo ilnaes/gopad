@@ -1,5 +1,6 @@
 import { Op, State } from './main.js'
 
+// diff that turns s1 -> s2
 export function diff(
   s1: string,
   s2: string,
