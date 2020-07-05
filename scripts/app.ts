@@ -18,7 +18,7 @@ export class App {
   ops: Op[][] = []
 
   textbox: HTMLTextAreaElement
-  ws: WebSocket
+  ws?: WebSocket
   worker: Worker
 
   constructor(docId: number) {
@@ -33,26 +33,42 @@ export class App {
     this.textbox = document.querySelector('#textbox') as HTMLTextAreaElement
     this.textbox.addEventListener('input', (e) => this.handleEvent())
 
-    this.ws = new WebSocket('ws://localhost:8080/ws/' + docId.toString())
-    this.ws.addEventListener('open', () => {
-      this.ws.send(this.uid.toString())
+    this.connect()
+  }
+
+  connect() {
+    this.ws = new WebSocket('ws://localhost:8080/ws/' + this.docId.toString())
+
+    this.ws.onopen = () => {
+      this.ws!.send(this.uid.toString())
       this.poll()
       this.commit()
-    })
-    this.ws.addEventListener('message', (e) => this.handleResp(e))
+    }
+
+    this.ws.onmessage = (e) => this.handleResp(e)
+
+    this.ws.onclose = () => {
+      this.connect()
+    }
+
+    this.ws.onerror = () => {
+      this.ws!.close()
+    }
   }
 
   async commit() {
     while (true) {
-      if (this.ops.length > 0) {
-        let req: Req = {
-          IsQuery: false,
-          View: this.view,
-          DocId: this.docId,
-          Uid: this.uid,
-          Ops: this.ops,
+      if (this.ws && this.ws.readyState == WebSocket.OPEN) {
+        if (this.ops.length > 0) {
+          let req: Req = {
+            IsQuery: false,
+            View: this.view,
+            DocId: this.docId,
+            Uid: this.uid,
+            Ops: this.ops,
+          }
+          this.ws.send(JSON.stringify(req))
         }
-        this.ws.send(JSON.stringify(req))
       }
 
       await sleep(PULL_INTERVAL)
@@ -65,7 +81,6 @@ export class App {
     while (true) {
       // make sure to push in order
       if (this.opsPoint == seq) {
-        console.log(ops)
         this.ops.push(ops)
         this.opsPoint++
         break
@@ -91,13 +106,15 @@ export class App {
   // continuously query the server
   async poll() {
     while (true) {
-      let req: Req = {
-        IsQuery: true,
-        DocId: this.docId,
-        Uid: this.uid,
-        View: this.view,
+      if (this.ws && this.ws.readyState == WebSocket.OPEN) {
+        let req: Req = {
+          IsQuery: true,
+          DocId: this.docId,
+          Uid: this.uid,
+          View: this.view,
+        }
+        this.ws.send(JSON.stringify(req))
       }
-      this.ws.send(JSON.stringify(req))
 
       await sleep(PULL_INTERVAL)
     }

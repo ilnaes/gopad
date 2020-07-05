@@ -1,15 +1,23 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/joho/godotenv"
 )
 
 const editpage = `<html>
@@ -41,8 +49,9 @@ type DocMeta struct {
 	AppliedSeqs map[int64]int // all seqs up to this from user have been applied
 	UserViews   map[int64]int // user reported to have seen this
 	NextDiscard int
+	DocId       int64
 
-	sync.Mutex // protects individual doc, must hold RLock of server.docs
+	mu sync.Mutex // protects individual doc, must hold RLock of server.docs
 }
 
 type Server struct {
@@ -51,6 +60,9 @@ type Server struct {
 
 	cl   sync.Mutex   // protects CommitLog
 	docs sync.RWMutex // W protects all docs, R needs to be held when locking just one doc
+
+	doc_db *mongo.Collection
+	cl_db  *mongo.Collection
 }
 
 // processes a request
@@ -87,26 +99,11 @@ func (s *Server) handle(r Request) {
 	doc.AppliedSeqs[r.Uid] = doc.Log[len(doc.Log)-1][0].Seq + 1
 }
 
-// deletes old ops from logs
-func (s *Server) prune() {
-	for {
-		s.cl.Lock()
-		for _, d := range s.Docs {
-			d.Log = d.Log[d.NextDiscard:]
-			d.NextDiscard = len(d.Log)
-		}
-		s.cl.Unlock()
-
-		time.Sleep(PruneInterval)
-	}
-}
-
 // applies commited requests to documents
 func (s *Server) update() {
-	// go s.prune()
-
 	for {
 		time.Sleep(UpdateInterval)
+
 		s.cl.Lock()
 		tmp := s.CommitLog
 		s.CommitLog = []Request{}
@@ -116,6 +113,12 @@ func (s *Server) update() {
 		for _, r := range tmp {
 			s.handle(r)
 		}
+
+		for _, d := range s.Docs {
+			filter := bson.D{{Key: "docid", Value: d.DocId}}
+			s.doc_db.ReplaceOne(context.TODO(), filter, d)
+		}
+
 		s.docs.Unlock()
 	}
 }
@@ -191,21 +194,48 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 			NextSeq:     make(map[int64]int, 0),
 			AppliedSeqs: make(map[int64]int, 0),
 			UserViews:   make(map[int64]int, 0),
+			DocId:       id,
 		}
-	}
 
+		s.doc_db.InsertOne(context.TODO(), s.Docs[id])
+	}
 	s.docs.Unlock()
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, editpage)
 }
 
-func NewServer(port int, restart bool) *Server {
+func NewServer(port int) *Server {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	MONGODB_URI := os.Getenv("MONGODB_URI")
+
 	s := new(Server)
 
-	if !restart {
-		s.Docs = make(map[int64]*DocMeta, 0)
-		s.CommitLog = []Request{}
-	}
+	opt := options.Client().ApplyURI(MONGODB_URI)
+	client, _ := mongo.Connect(context.TODO(), opt)
+
+	s.doc_db = client.Database("gopad").Collection("documents")
+	s.cl_db = client.Database("gopad").Collection("log")
+
+	s.CommitLog = []Request{}
+	s.Docs = make(map[int64]*DocMeta, 0)
 	return s
+}
+
+// deletes old ops from logs
+func (s *Server) prune() {
+	for {
+		s.cl.Lock()
+		for _, d := range s.Docs {
+			d.Log = d.Log[d.NextDiscard:]
+			d.NextDiscard = len(d.Log)
+		}
+		s.cl.Unlock()
+
+		time.Sleep(PruneInterval)
+	}
 }

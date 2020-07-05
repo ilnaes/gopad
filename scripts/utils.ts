@@ -133,8 +133,6 @@ export function xform(o1: Op[], o2: Op[]): Op[] {
 
 export function applyPos(pos: [number, number], ops: Op[]): [number, number] {
   let res: [number, number] = [...pos]
-  console.log(pos)
-  console.log(ops)
   for (let j = 0; j < ops.length; j++) {
     let op = ops[j]
 

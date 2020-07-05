@@ -10,7 +10,7 @@ import (
 )
 
 func Run(port int) {
-	server := NewServer(port, false)
+	server := NewServer(port)
 	go server.update()
 
 	r := mux.NewRouter()
