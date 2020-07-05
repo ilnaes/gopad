@@ -41,28 +41,16 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-type DocMeta struct {
-	Doc Doc
-
-	Log         [][]Op        // one update is a collection of ops from one diff
-	NextSeq     map[int64]int // expected next seq from user
-	AppliedSeqs map[int64]int // all seqs up to this from user have been applied
-	UserViews   map[int64]int // user reported to have seen this
-	NextDiscard int
-	DocId       int64
-
-	mu sync.Mutex // protects individual doc, must hold RLock of server.docs
-}
-
 type Server struct {
-	Docs      map[int64]*DocMeta
-	CommitLog []Request // Paxos stand-in for now
+	Docs       map[int64]*DocMeta
+	CommitLog  []Request // Paxos stand-in for now
+	LastCommit int       // last req in log to have been handled
+	LastSave   int       // last req in log to have been saved to db
 
 	cl   sync.Mutex   // protects CommitLog
 	docs sync.RWMutex // W protects all docs, R needs to be held when locking just one doc
 
-	doc_db *mongo.Collection
-	cl_db  *mongo.Collection
+	db *mongo.Collection
 }
 
 // processes a request
@@ -105,21 +93,23 @@ func (s *Server) update() {
 		time.Sleep(UpdateInterval)
 
 		s.cl.Lock()
-		tmp := s.CommitLog
-		s.CommitLog = []Request{}
+		tmp := s.CommitLog[s.LastCommit:]
+		s.LastCommit = len(s.CommitLog)
 		s.cl.Unlock()
 
 		s.docs.Lock()
 		for _, r := range tmp {
 			s.handle(r)
 		}
+		s.docs.Unlock()
 
-		for _, d := range s.Docs {
-			filter := bson.D{{Key: "docid", Value: d.DocId}}
-			s.doc_db.ReplaceOne(context.TODO(), filter, d)
+		req := make([]interface{}, len(tmp))
+		for i, x := range tmp {
+			req[i] = interface{}(x)
 		}
 
-		s.docs.Unlock()
+		s.db.InsertMany(context.TODO(), req)
+		s.LastSave += len(tmp)
 	}
 }
 
@@ -196,8 +186,6 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 			UserViews:   make(map[int64]int, 0),
 			DocId:       id,
 		}
-
-		s.doc_db.InsertOne(context.TODO(), s.Docs[id])
 	}
 	s.docs.Unlock()
 
@@ -213,17 +201,56 @@ func NewServer(port int) *Server {
 
 	MONGODB_URI := os.Getenv("MONGODB_URI")
 
-	s := new(Server)
+	s := Server{
+		Docs:      make(map[int64]*DocMeta, 0),
+		CommitLog: make([]Request, 0),
+	}
 
 	opt := options.Client().ApplyURI(MONGODB_URI)
 	client, _ := mongo.Connect(context.TODO(), opt)
 
-	s.doc_db = client.Database("gopad").Collection("documents")
-	s.cl_db = client.Database("gopad").Collection("log")
+	s.db = client.Database("gopad").Collection("log")
 
-	s.CommitLog = []Request{}
-	s.Docs = make(map[int64]*DocMeta, 0)
-	return s
+	cur, err := s.db.Find(context.TODO(), bson.D{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for cur.Next(context.TODO()) {
+		// create a value into which the single document can be decoded
+		var elem Request
+		err := cur.Decode(&elem)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		s.CommitLog = append(s.CommitLog, elem)
+	}
+
+	s.LastSave = len(s.CommitLog)
+	s.LastCommit = len(s.CommitLog)
+
+	// populate docs from log
+	for _, req := range s.CommitLog {
+		if _, ok := s.Docs[req.DocId]; !ok {
+			s.Docs[req.DocId] = &DocMeta{
+				Doc: Doc{
+					Body:  []byte{},
+					View:  0,
+					DocId: req.DocId,
+				},
+				Log:         [][]Op{},
+				NextSeq:     make(map[int64]int, 0),
+				AppliedSeqs: make(map[int64]int, 0),
+				UserViews:   make(map[int64]int, 0),
+				DocId:       req.DocId,
+			}
+		}
+
+		s.handle(req)
+	}
+
+	return &s
 }
 
 // deletes old ops from logs

@@ -1,6 +1,9 @@
 package internal
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type ResType string
 
@@ -38,6 +41,19 @@ type Op struct {
 	Seq  int
 	Uid  int64
 	View int
+}
+
+type DocMeta struct {
+	Doc Doc
+
+	Log         [][]Op        // one update is a collection of ops from one diff
+	NextSeq     map[int64]int // expected next seq from user
+	AppliedSeqs map[int64]int // all seqs up to this from user have been applied
+	UserViews   map[int64]int // user reported to have seen this
+	NextDiscard int
+	DocId       int64
+
+	mu sync.Mutex // protects individual doc, must hold RLock of server.docs
 }
 
 type Doc struct {

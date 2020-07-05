@@ -7,6 +7,9 @@ export class App {
   docId: number = -1
   uid: number = -1
 
+  pollStart: boolean = false
+  commitStart: boolean = false
+
   view: number = -1
   seq: number = 0
   discardPoint: number = -1
@@ -57,6 +60,10 @@ export class App {
   }
 
   async commit() {
+    if (this.commitStart) {
+      return
+    }
+    this.commitStart = true
     while (true) {
       if (this.ws && this.ws.readyState == WebSocket.OPEN) {
         if (this.ops.length > 0) {
@@ -67,7 +74,12 @@ export class App {
             Uid: this.uid,
             Ops: this.ops,
           }
-          this.ws.send(JSON.stringify(req))
+          try {
+            this.ws.send(JSON.stringify(req))
+          } catch (_) {
+            this.commitStart = false
+            break
+          }
         }
       }
 
@@ -105,6 +117,11 @@ export class App {
 
   // continuously query the server
   async poll() {
+    if (this.pollStart) {
+      return
+    }
+
+    this.pollStart = true
     while (true) {
       if (this.ws && this.ws.readyState == WebSocket.OPEN) {
         let req: Req = {
@@ -113,7 +130,12 @@ export class App {
           Uid: this.uid,
           View: this.view,
         }
-        this.ws.send(JSON.stringify(req))
+        try {
+          this.ws.send(JSON.stringify(req))
+        } catch (_) {
+          this.pollStart = false
+          break
+        }
       }
 
       await sleep(PULL_INTERVAL)
