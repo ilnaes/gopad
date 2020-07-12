@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -49,6 +50,8 @@ type Server struct {
 
 	cl   sync.Mutex   // protects CommitLog
 	docs sync.RWMutex // W protects all docs, R needs to be held when locking just one doc
+	port int
+	addr string
 
 	db *mongo.Collection
 }
@@ -89,6 +92,7 @@ func (s *Server) handle(r Request) {
 
 // applies commited requests to documents
 func (s *Server) update() {
+	i := 0
 	for {
 		time.Sleep(UpdateInterval)
 
@@ -110,7 +114,74 @@ func (s *Server) update() {
 
 		s.db.InsertMany(context.TODO(), req)
 		s.LastSave += len(tmp)
+
+		if i%50 == 0 {
+			// snapshot
+			s.saveToDisk()
+		}
+		i++
 	}
+}
+
+func (s *Server) saveToDisk() {
+	s.docs.Lock()
+	defer s.docs.Unlock()
+
+	s.cl.Lock()
+	defer s.cl.Unlock()
+
+	path := fmt.Sprintf("snapshot-%s-%d", s.addr, s.port)
+
+	f, err := os.Create(path + ".tmp")
+	if err != nil {
+		log.Println("Could not create file for snapshot")
+		return
+	}
+
+	res, err := json.MarshalIndent(s, "", "	")
+	if err != nil {
+		log.Println("Could not encode for snapshot")
+		return
+	}
+
+	_, err = f.Write(res)
+	if err != nil {
+		log.Println("Could not write for snapshot")
+		return
+	}
+
+	err = os.Rename(path+".tmp", path+".json")
+	if err != nil {
+		log.Println("Could not rename file for snapshot")
+		return
+	}
+}
+
+func recoverFromDisk(addr string, port int) *Server {
+	path := fmt.Sprintf("snapshot-%s-%d.json", addr, port)
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return &Server{
+			Docs:      make(map[int64]*DocMeta, 0),
+			CommitLog: make([]Request, 0),
+			addr:      addr,
+			port:      port,
+		}
+	}
+
+	s := new(Server)
+	f, err := os.Open(path)
+	if err != nil {
+		log.Fatal("Could not recover file")
+	}
+
+	dec := json.NewDecoder(f)
+	err = dec.Decode(s)
+	if err != nil {
+		log.Fatal("Could not decode file")
+	}
+
+	return s
 }
 
 func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
@@ -121,6 +192,64 @@ func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
 		uid:   uid,
 		alive: true,
 	}
+}
+
+func NewServer(addr string, port int) *Server {
+	s := recoverFromDisk(addr, port)
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	MONGODB_URI := os.Getenv("MONGODB_URI")
+
+	opt := options.Client().ApplyURI(MONGODB_URI)
+	client, _ := mongo.Connect(context.TODO(), opt)
+
+	s.db = client.Database("gopad").Collection("log")
+
+	cur, err := s.db.Find(context.TODO(), bson.D{{"num", bson.D{{"$gte", len(s.CommitLog)}}}})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for cur.Next(context.TODO()) {
+		// create a value into which the single document can be decoded
+		var elem Request
+		err := cur.Decode(&elem)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("Mongo recovered request %d\n", elem.Num)
+		s.CommitLog = append(s.CommitLog, elem)
+	}
+
+	s.LastSave = len(s.CommitLog)
+	s.LastCommit = len(s.CommitLog)
+
+	// populate docs from log
+	for _, req := range s.CommitLog {
+		if _, ok := s.Docs[req.DocId]; !ok {
+			s.Docs[req.DocId] = &DocMeta{
+				Doc: Doc{
+					Body:  []byte{},
+					View:  0,
+					DocId: req.DocId,
+				},
+				Log:         [][]Op{},
+				NextSeq:     make(map[int64]int, 0),
+				AppliedSeqs: make(map[int64]int, 0),
+				UserViews:   make(map[int64]int, 0),
+				DocId:       req.DocId,
+			}
+		}
+
+		s.handle(req)
+	}
+
+	return s
 }
 
 // set up websocket
@@ -191,66 +320,6 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, editpage)
-}
-
-func NewServer(port int) *Server {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	MONGODB_URI := os.Getenv("MONGODB_URI")
-
-	s := Server{
-		Docs:      make(map[int64]*DocMeta, 0),
-		CommitLog: make([]Request, 0),
-	}
-
-	opt := options.Client().ApplyURI(MONGODB_URI)
-	client, _ := mongo.Connect(context.TODO(), opt)
-
-	s.db = client.Database("gopad").Collection("log")
-
-	cur, err := s.db.Find(context.TODO(), bson.D{})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for cur.Next(context.TODO()) {
-		// create a value into which the single document can be decoded
-		var elem Request
-		err := cur.Decode(&elem)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		s.CommitLog = append(s.CommitLog, elem)
-	}
-
-	s.LastSave = len(s.CommitLog)
-	s.LastCommit = len(s.CommitLog)
-
-	// populate docs from log
-	for _, req := range s.CommitLog {
-		if _, ok := s.Docs[req.DocId]; !ok {
-			s.Docs[req.DocId] = &DocMeta{
-				Doc: Doc{
-					Body:  []byte{},
-					View:  0,
-					DocId: req.DocId,
-				},
-				Log:         [][]Op{},
-				NextSeq:     make(map[int64]int, 0),
-				AppliedSeqs: make(map[int64]int, 0),
-				UserViews:   make(map[int64]int, 0),
-				DocId:       req.DocId,
-			}
-		}
-
-		s.handle(req)
-	}
-
-	return &s
 }
 
 // deletes old ops from logs

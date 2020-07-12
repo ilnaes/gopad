@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -22,6 +21,7 @@ type Request struct {
 	Uid     int64
 
 	Ops [][]Op
+	Num int
 }
 
 type Response struct {
@@ -64,6 +64,5 @@ type Doc struct {
 
 func (d *Doc) ApplyOps(op []Op) {
 	d.Body = Apply(d.Body, op)
-	fmt.Printf("DOC: %+v\n%s\n", op, string(d.Body))
 	d.View++
 }

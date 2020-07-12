@@ -10,7 +10,8 @@ import (
 )
 
 func Run(port int) {
-	server := NewServer(port)
+	addr := "127.0.0.1"
+	server := NewServer(addr, port)
 	go server.update()
 
 	r := mux.NewRouter()
@@ -21,7 +22,7 @@ func Run(port int) {
 
 	srv := &http.Server{
 		Handler: r,
-		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
+		Addr:    fmt.Sprintf("%s:%d", addr, port),
 		// Good practice: enforce timeouts for servers you create!
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,

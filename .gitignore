@@ -3,3 +3,4 @@
 tags
 node_modules/
 static/*.js
+snapshot-*.json

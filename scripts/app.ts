@@ -63,6 +63,7 @@ export class App {
     if (this.commitStart) {
       return
     }
+
     this.commitStart = true
     while (true) {
       if (this.ws && this.ws.readyState == WebSocket.OPEN) {

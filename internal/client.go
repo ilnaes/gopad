@@ -93,7 +93,7 @@ func (c *Client) handleOps(m Request) {
 			Seq:  seq,
 		})
 	} else if m.View < c.doc.Doc.View-len(c.doc.Log) {
-		// view is from too far ago
+		// view is from too long ago
 		res := Response{
 			Type: DocRes,
 			Body: string(c.doc.Doc.Body),
@@ -113,6 +113,7 @@ func (c *Client) handleOps(m Request) {
 		c.s.cl.Lock()
 		if lastSeq >= c.doc.NextSeq[c.uid] {
 			// something new
+			m.Num = len(c.s.CommitLog)
 			c.s.CommitLog = append(c.s.CommitLog, m)
 			c.doc.NextSeq[c.uid] = lastSeq + 1
 		}
