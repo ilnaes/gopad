@@ -35,6 +35,7 @@ const editpage = `<html>
 const (
 	UpdateInterval = 250 * time.Millisecond
 	PruneInterval  = 30 * time.Second
+	SnapMult       = 50
 )
 
 var upgrader = websocket.Upgrader{
@@ -115,7 +116,7 @@ func (s *Server) update() {
 		s.db.InsertMany(context.TODO(), req)
 		s.LastSave += len(tmp)
 
-		if i%50 == 0 {
+		if i%SnapMult == 0 {
 			// snapshot
 			s.saveToDisk()
 		}
@@ -181,6 +182,9 @@ func recoverFromDisk(addr string, port int) *Server {
 		log.Fatal("Could not decode file")
 	}
 
+	s.addr = addr
+	s.port = port
+
 	return s
 }
 
@@ -208,8 +212,9 @@ func NewServer(addr string, port int) *Server {
 	client, _ := mongo.Connect(context.TODO(), opt)
 
 	s.db = client.Database("gopad").Collection("log")
+	log.Printf("Recovered %d log\n", len(s.CommitLog))
 
-	cur, err := s.db.Find(context.TODO(), bson.D{{"num", bson.D{{"$gte", len(s.CommitLog)}}}})
+	cur, err := s.db.Find(context.TODO(), bson.D{{"num", bson.D{{"$gte", s.LastSave}}}})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -226,11 +231,10 @@ func NewServer(addr string, port int) *Server {
 		s.CommitLog = append(s.CommitLog, elem)
 	}
 
-	s.LastSave = len(s.CommitLog)
 	s.LastCommit = len(s.CommitLog)
 
 	// populate docs from log
-	for _, req := range s.CommitLog {
+	for _, req := range s.CommitLog[s.LastSave:] {
 		if _, ok := s.Docs[req.DocId]; !ok {
 			s.Docs[req.DocId] = &DocMeta{
 				Doc: Doc{
@@ -247,7 +251,10 @@ func NewServer(addr string, port int) *Server {
 		}
 
 		s.handle(req)
+		s.LastSave++
 	}
+
+	log.Println("Started")
 
 	return s
 }
