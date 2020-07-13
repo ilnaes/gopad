@@ -113,7 +113,9 @@ func (c *Client) handleOps(m Request) {
 		c.s.cl.Lock()
 		if lastSeq >= c.doc.NextSeq[c.uid] {
 			// something new
-			m.Num = len(c.s.CommitLog)
+			m.Num = c.s.LastCommit
+			c.s.LastCommit++
+
 			c.s.CommitLog = append(c.s.CommitLog, m)
 			c.doc.NextSeq[c.uid] = lastSeq + 1
 		}

@@ -34,8 +34,7 @@ const editpage = `<html>
 
 const (
 	UpdateInterval = 250 * time.Millisecond
-	PruneInterval  = 30 * time.Second
-	SnapMult       = 50
+	SnapMult       = 100
 )
 
 var upgrader = websocket.Upgrader{
@@ -46,8 +45,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	Docs       map[int64]*DocMeta
 	CommitLog  []Request // Paxos stand-in for now
-	LastCommit int       // last req in log to have been handled
-	LastSave   int       // last req in log to have been saved to db
+	LastCommit int       // last req to have been saved to commit log
 
 	cl   sync.Mutex   // protects CommitLog
 	docs sync.RWMutex // W protects all docs, R needs to be held when locking just one doc
@@ -98,27 +96,31 @@ func (s *Server) update() {
 		time.Sleep(UpdateInterval)
 
 		s.cl.Lock()
-		tmp := s.CommitLog[s.LastCommit:]
-		s.LastCommit = len(s.CommitLog)
+		tmp := s.CommitLog
+		s.CommitLog = make([]Request, 0)
 		s.cl.Unlock()
 
-		s.docs.Lock()
-		for _, r := range tmp {
-			s.handle(r)
-		}
-		s.docs.Unlock()
+		if len(tmp) > 0 {
+			s.docs.Lock()
+			for _, r := range tmp {
+				s.handle(r)
+			}
+			s.docs.Unlock()
 
-		req := make([]interface{}, len(tmp))
-		for i, x := range tmp {
-			req[i] = interface{}(x)
-		}
+			req := make([]interface{}, len(tmp))
+			for i, x := range tmp {
+				log.Printf("Saving req %d\n", x.Num)
+				req[i] = interface{}(x)
+			}
 
-		s.db.InsertMany(context.TODO(), req)
-		s.LastSave += len(tmp)
+			s.db.InsertMany(context.TODO(), req)
+			log.Println("Done")
+		}
 
 		if i%SnapMult == 0 {
 			// snapshot
 			s.saveToDisk()
+			log.Println("Saved to disk")
 		}
 		i++
 	}
@@ -145,14 +147,12 @@ func (s *Server) saveToDisk() {
 		return
 	}
 
-	_, err = f.Write(res)
-	if err != nil {
+	if _, err = f.Write(res); err != nil {
 		log.Println("Could not write for snapshot")
 		return
 	}
 
-	err = os.Rename(path+".tmp", path+".json")
-	if err != nil {
+	if os.Rename(path+".tmp", path+".json") != nil {
 		log.Println("Could not rename file for snapshot")
 		return
 	}
@@ -198,11 +198,8 @@ func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
 	}
 }
 
-func NewServer(addr string, port int) *Server {
-	s := recoverFromDisk(addr, port)
-
-	err := godotenv.Load()
-	if err != nil {
+func (s *Server) recoverFromMongo() {
+	if godotenv.Load() != nil {
 		log.Fatal("Error loading .env file")
 	}
 
@@ -212,9 +209,19 @@ func NewServer(addr string, port int) *Server {
 	client, _ := mongo.Connect(context.TODO(), opt)
 
 	s.db = client.Database("gopad").Collection("log")
-	log.Printf("Recovered %d log\n", len(s.CommitLog))
 
-	cur, err := s.db.Find(context.TODO(), bson.D{{"num", bson.D{{"$gte", s.LastSave}}}})
+	if s.LastCommit != 0 {
+		cur, err := s.db.Find(context.TODO(), bson.D{{"num", s.LastCommit - 1}})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if !cur.Next(context.TODO()) {
+			log.Fatal("Missing entries")
+		}
+	}
+
+	cur, err := s.db.Find(context.TODO(), bson.D{{"num", bson.D{{"$gte", s.LastCommit}}}})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -231,10 +238,8 @@ func NewServer(addr string, port int) *Server {
 		s.CommitLog = append(s.CommitLog, elem)
 	}
 
-	s.LastCommit = len(s.CommitLog)
-
 	// populate docs from log
-	for _, req := range s.CommitLog[s.LastSave:] {
+	for _, req := range s.CommitLog {
 		if _, ok := s.Docs[req.DocId]; !ok {
 			s.Docs[req.DocId] = &DocMeta{
 				Doc: Doc{
@@ -251,8 +256,17 @@ func NewServer(addr string, port int) *Server {
 		}
 
 		s.handle(req)
-		s.LastSave++
+		s.LastCommit++
 	}
+
+	s.CommitLog = make([]Request, 0)
+}
+
+func NewServer(addr string, port int) *Server {
+	s := recoverFromDisk(addr, port)
+	log.Printf("Recovered %d log\n", s.LastCommit)
+
+	s.recoverFromMongo()
 
 	log.Println("Started")
 
@@ -327,18 +341,4 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, editpage)
-}
-
-// deletes old ops from logs
-func (s *Server) prune() {
-	for {
-		s.cl.Lock()
-		for _, d := range s.Docs {
-			d.Log = d.Log[d.NextDiscard:]
-			d.NextDiscard = len(d.Log)
-		}
-		s.cl.Unlock()
-
-		time.Sleep(PruneInterval)
-	}
 }
