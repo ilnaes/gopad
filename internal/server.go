@@ -60,10 +60,6 @@ type Server struct {
 func (s *Server) handle(r Request) {
 	doc := s.Docs[r.DocId]
 
-	if r.View > doc.UserViews[r.Uid] {
-		doc.UserViews[r.Uid] = r.View
-	}
-
 	var ops [][]Op
 
 	// trim previously applied ops
@@ -76,10 +72,11 @@ func (s *Server) handle(r Request) {
 
 	// xform
 	view := doc.Doc.View
-	for _, op := range ops {
+	for i, op := range ops {
 		for _, op1 := range doc.Log[len(doc.Log)-(view-op[0].View):] {
 			if op[0].Uid != op1[0].Uid {
 				op = Xform(op1, op)
+				ops[i] = op
 			}
 		}
 		doc.Doc.ApplyOps(op)
@@ -87,9 +84,13 @@ func (s *Server) handle(r Request) {
 
 	doc.Log = append(doc.Log, ops...)
 	doc.AppliedSeqs[r.Uid] = doc.Log[len(doc.Log)-1][0].Seq + 1
+
+	if doc.NextSeq[r.Uid] < doc.AppliedSeqs[r.Uid] {
+		doc.NextSeq[r.Uid] = doc.AppliedSeqs[r.Uid]
+	}
 }
 
-// applies commited requests to documents
+// applies commited requests to documents and saves to db
 func (s *Server) update() {
 	i := 0
 	for {
@@ -101,12 +102,6 @@ func (s *Server) update() {
 		s.cl.Unlock()
 
 		if len(tmp) > 0 {
-			s.docs.Lock()
-			for _, r := range tmp {
-				s.handle(r)
-			}
-			s.docs.Unlock()
-
 			req := make([]interface{}, len(tmp))
 			for i, x := range tmp {
 				log.Printf("Saving req %d\n", x.Num)
@@ -114,6 +109,13 @@ func (s *Server) update() {
 			}
 
 			s.db.InsertMany(context.TODO(), req)
+
+			s.docs.Lock()
+			for _, r := range tmp {
+				s.handle(r)
+			}
+			s.docs.Unlock()
+
 			log.Println("Done")
 		}
 
@@ -210,6 +212,7 @@ func (s *Server) recoverFromMongo() {
 
 	s.db = client.Database("gopad").Collection("log")
 
+	// check json not ahead of db somehow
 	if s.LastCommit != 0 {
 		cur, err := s.db.Find(context.TODO(), bson.D{{"num", s.LastCommit - 1}})
 		if err != nil {
@@ -250,7 +253,6 @@ func (s *Server) recoverFromMongo() {
 				Log:         [][]Op{},
 				NextSeq:     make(map[int64]int, 0),
 				AppliedSeqs: make(map[int64]int, 0),
-				UserViews:   make(map[int64]int, 0),
 				DocId:       req.DocId,
 			}
 		}
@@ -333,7 +335,6 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 			Log:         [][]Op{},
 			NextSeq:     make(map[int64]int, 0),
 			AppliedSeqs: make(map[int64]int, 0),
-			UserViews:   make(map[int64]int, 0),
 			DocId:       id,
 		}
 	}

@@ -49,7 +49,6 @@ type DocMeta struct {
 	Log         [][]Op        // one update is a collection of ops from one diff
 	NextSeq     map[int64]int // expected next seq from user
 	AppliedSeqs map[int64]int // all seqs up to this from user have been applied
-	UserViews   map[int64]int // user reported to have seen this
 	NextDiscard int
 	DocId       int64
 

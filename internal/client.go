@@ -17,6 +17,7 @@ type Client struct {
 	sync.Mutex // protects concurrent conn writes
 }
 
+// thread-safe websocket writing
 func (c *Client) write(res Response) {
 	c.Lock()
 	err := c.conn.WriteJSON(res)
