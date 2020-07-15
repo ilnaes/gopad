@@ -41,10 +41,10 @@ func diff(s1, s2 []byte) []Op {
 	// collect diff into slice
 	for i > 0 || j > 0 {
 		if i == 0 {
-			res = append(res, Op{Add: true, Loc: i, Ch: s2[j-1]})
+			res = append(res, Op{Type: Add, Loc: i, Ch: s2[j-1]})
 			j--
 		} else if j == 0 {
-			res = append(res, Op{Add: false, Loc: i - 1, Ch: s1[i-1]})
+			res = append(res, Op{Type: Del, Loc: i - 1, Ch: s1[i-1]})
 			i--
 		} else {
 			if s1[i-1] == s2[j-1] && dp[i][j] == dp[i-1][j-1] {
@@ -53,11 +53,11 @@ func diff(s1, s2 []byte) []Op {
 			} else {
 				if dp[i][j] == dp[i][j-1]+1 {
 					// Add s2[j-1]
-					res = append(res, Op{Add: true, Loc: i, Ch: s2[j-1]})
+					res = append(res, Op{Type: Add, Loc: i, Ch: s2[j-1]})
 					j--
 				} else {
-					// resete s1[i-1]
-					res = append(res, Op{Add: false, Loc: i - 1, Ch: s1[i-1]})
+					// delete s1[i-1]
+					res = append(res, Op{Type: Del, Loc: i - 1, Ch: s1[i-1]})
 					i--
 				}
 			}
@@ -85,10 +85,14 @@ func Apply(s []byte, ops []Op) []byte {
 	i := 0
 
 	for _, op := range ops {
+		if op.Type == NOOP {
+			continue
+		}
+
 		res = append(res, s[i:op.Loc]...)
 		i = op.Loc
 
-		if op.Add {
+		if op.Type == Add {
 			res = append(res, op.Ch)
 		} else {
 			i++
@@ -116,14 +120,14 @@ func Xform(o1, o2 []Op) []Op {
 			res[len(res)-1].Loc += delta
 			j++
 		} else if o1[i].Loc == o2[j].Loc {
-			if !o1[i].Add && !o2[j].Add {
+			if o1[i].Type == Del && o2[j].Type == Del {
 				// two deletes so skip
 				j++
 				i++
 				delta--
 			} else {
 				// do Add first
-				if o1[i].Add {
+				if o1[i].Type == Add {
 					delta++
 					i++
 				} else {
@@ -133,7 +137,7 @@ func Xform(o1, o2 []Op) []Op {
 				}
 			}
 		} else {
-			if o1[i].Add {
+			if o1[i].Type == Add {
 				delta++
 			} else {
 				delta--

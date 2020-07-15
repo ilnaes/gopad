@@ -8,12 +8,30 @@ export function diff(
   uid: number,
   view: number
 ): Op[] {
+  // trim beginning
+  let delta = 0
+  for (let i = 0; i < Math.min(s1.length, s2.length); i++) {
+    if (s1[i] != s2[i]) {
+      s1 = s1.substring(i)
+      s2 = s2.substring(i)
+      delta = i
+      break
+    }
+  }
+
+  // trim end
+  for (let i = 0; i < Math.min(s1.length, s2.length); i++) {
+    if (s1[s1.length - 1 - i] != s2[s2.length - 1 - i]) {
+      s1 = s1.substring(0, s1.length - i)
+      s2 = s2.substring(0, s2.length - i)
+      break
+    }
+  }
+
   let dp = new Array(s1.length + 1)
   dp[0] = Array.from(Array(s2.length + 1).keys())
 
   // DP to calculate diff
-  // TODO: trim beginning and end
-
   for (let i = 1; i < s1.length + 1; i++) {
     dp[i] = new Array(s2.length + 1)
     dp[i][0] = i
@@ -36,8 +54,8 @@ export function diff(
   while (i > 0 || j > 0) {
     if (i == 0) {
       res.push({
-        Add: true,
-        Loc: i,
+        Type: 'Add',
+        Loc: delta + i,
         Ch: s2.charCodeAt(j - 1),
         Seq: seq,
         Uid: uid,
@@ -46,8 +64,8 @@ export function diff(
       j--
     } else if (j == 0) {
       res.push({
-        Add: false,
-        Loc: i - 1,
+        Type: 'Del',
+        Loc: delta + i - 1,
         Ch: s1.charCodeAt(i - 1),
         Seq: seq,
         Uid: uid,
@@ -62,8 +80,8 @@ export function diff(
         if (dp[i][j] == dp[i][j - 1] + 1) {
           // Add s2[j-1]
           res.push({
-            Add: true,
-            Loc: i,
+            Type: 'Add',
+            Loc: delta + i,
             Ch: s2.charCodeAt(j - 1),
             Seq: seq,
             Uid: uid,
@@ -73,8 +91,8 @@ export function diff(
         } else {
           // Delete s1[i-1]
           res.push({
-            Add: false,
-            Loc: i - 1,
+            Type: 'Del',
+            Loc: delta + i - 1,
             Ch: s1.charCodeAt(i - 1),
             Seq: seq,
             Uid: uid,
@@ -102,14 +120,14 @@ export function xform(o1: Op[], o2: Op[]): Op[] {
       res[res.length - 1].Loc += delta
       j++
     } else if (o1[i].Loc == o2[j].Loc) {
-      if (!o1[i].Add && !o2[j].Add) {
+      if (o1[i].Type == 'Add' && o2[j].Type == 'Add') {
         // two deletes so skip
         j++
         i++
         delta--
       } else {
         // do Add first
-        if (o1[i].Add) {
+        if (o1[i].Type == 'Add') {
           delta++
           i++
         } else {
@@ -119,7 +137,7 @@ export function xform(o1: Op[], o2: Op[]): Op[] {
         }
       }
     } else {
-      if (o1[i].Add) {
+      if (o1[i].Type == 'Add') {
         delta++
       } else {
         delta--
@@ -140,7 +158,7 @@ export function applyPos(pos: [number, number], ops: Op[]): [number, number] {
       break
     }
 
-    if (op.Add) {
+    if (op.Type == 'Add') {
       if (pos[0] >= op.Loc) {
         res[0] += 1
       }
@@ -165,7 +183,7 @@ export function applyString(base: string, ops: Op[]): string {
     res += base.substring(i, op.Loc)
     i = op.Loc
 
-    if (op.Add) {
+    if (op.Type == 'Add') {
       res += String.fromCharCode(op.Ch)
     } else {
       i++

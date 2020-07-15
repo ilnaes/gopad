@@ -59,6 +59,7 @@ export class App {
     }
   }
 
+  // push changes to server
   async commit() {
     if (this.commitStart) {
       return
@@ -101,6 +102,7 @@ export class App {
 
       await sleep(100)
     }
+    console.log(this.ops)
   }
 
   // when textbox changes ask Worker to compute diff
@@ -184,6 +186,7 @@ export class App {
           }
 
           // apply to base and xform log
+          console.log(resp.Ops)
           for (let i = this.view - resp.View; i < resp.Ops.length; i++) {
             this.base = applyString(this.base, resp.Ops[i])
 

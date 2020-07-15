@@ -73,12 +73,14 @@ func (s *Server) handle(r Request) {
 	// xform
 	view := doc.Doc.View
 	for i, op := range ops {
+		fmt.Printf("BEFORE: %v\n", op)
 		for _, op1 := range doc.Log[len(doc.Log)-(view-op[0].View):] {
 			if op[0].Uid != op1[0].Uid {
 				op = Xform(op1, op)
 				ops[i] = op
 			}
 		}
+		fmt.Printf("AFTER: %v\n", op)
 		doc.Doc.ApplyOps(op)
 	}
 
@@ -108,7 +110,7 @@ func (s *Server) update() {
 				req[i] = interface{}(x)
 			}
 
-			s.db.InsertMany(context.TODO(), req)
+			// s.db.InsertMany(context.TODO(), req)
 
 			s.docs.Lock()
 			for _, r := range tmp {
@@ -121,8 +123,8 @@ func (s *Server) update() {
 
 		if i%SnapMult == 0 {
 			// snapshot
-			s.saveToDisk()
-			log.Println("Saved to disk")
+			// s.saveToDisk()
+			// log.Println("Saved to disk")
 		}
 		i++
 	}
@@ -268,7 +270,7 @@ func NewServer(addr string, port int) *Server {
 	s := recoverFromDisk(addr, port)
 	log.Printf("Recovered %d log\n", s.LastCommit)
 
-	s.recoverFromMongo()
+	// s.recoverFromMongo()
 
 	log.Println("Started")
 

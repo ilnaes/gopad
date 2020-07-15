@@ -4,14 +4,18 @@ import (
 	"sync"
 )
 
-type ResType string
-
 const (
 	Ack      = "Ack"
 	DocRes   = "DocRes"
 	OpsRes   = "OpsRes"
 	Error    = "Error"
 	Outdated = "Outdated"
+)
+
+const (
+	Add  = "Add"
+	Del  = "Del"
+	NOOP = "NOOP"
 )
 
 type Request struct {
@@ -25,7 +29,7 @@ type Request struct {
 }
 
 type Response struct {
-	Type ResType
+	Type string
 	View int
 	Seq  int // last seen seq (always included)
 
@@ -34,9 +38,9 @@ type Response struct {
 }
 
 type Op struct {
-	Loc int
-	Add bool
-	Ch  byte
+	Loc  int
+	Type string
+	Ch   byte
 
 	Seq  int
 	Uid  int64

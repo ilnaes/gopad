@@ -9,7 +9,7 @@ export class State {
 export type Op = {
   Loc: number
   Ch: number
-  Add: boolean
+  Type: string
 
   Seq: number
   Uid: number

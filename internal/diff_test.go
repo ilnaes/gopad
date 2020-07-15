@@ -43,6 +43,14 @@ func TestXform(t *testing.T) {
 		{"start: long string :end", "start: :end", "start: long abc", "start: abc"},
 		{"start: long string :end", "start: :end", "start: long text", "start:ext"},
 		{"start: long string :end", "start: :end", "start: long word", "start:wod"},
+		{`123
+456
+789`,
+			`123`,
+			`123
+456one more
+789`,
+			`123one more`},
 	}
 
 	for _, c := range cases {
