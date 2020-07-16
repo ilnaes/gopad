@@ -10,10 +10,9 @@ export type Op = {
   Loc: number
   Ch: number
   Type: string
+  Seq?: number
 
-  Seq: number
   Uid: number
-  View: number
 }
 
 export type Res = {
@@ -29,7 +28,9 @@ export type Req = {
   DocId: number
   Uid: number
   View: number
-  Ops?: Op[][]
+
+  Seq: number
+  Ops?: Op[]
 }
 
 function main() {

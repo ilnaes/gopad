@@ -20,11 +20,13 @@ const (
 
 type Request struct {
 	IsQuery bool
-	View    int
 	DocId   int64
 	Uid     int64
 
-	Ops [][]Op
+	Ops  []Op
+	View int
+	Seq  int
+
 	Num int
 }
 
@@ -41,10 +43,9 @@ type Op struct {
 	Loc  int
 	Type string
 	Ch   byte
+	Seq  int // purely for client-side
 
-	Seq  int
-	Uid  int64
-	View int
+	Uid int64
 }
 
 type DocMeta struct {

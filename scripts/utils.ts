@@ -1,13 +1,7 @@
 import { Op, State } from './main.js'
 
 // diff that turns s1 -> s2
-export function diff(
-  s1: string,
-  s2: string,
-  seq: number,
-  uid: number,
-  view: number
-): Op[] {
+export function diff(s1: string, s2: string, uid: number): Op[] {
   // trim beginning
   let delta = 0
   for (let i = 0; i < Math.min(s1.length, s2.length); i++) {
@@ -57,9 +51,7 @@ export function diff(
         Type: 'Add',
         Loc: delta + i,
         Ch: s2.charCodeAt(j - 1),
-        Seq: seq,
         Uid: uid,
-        View: view,
       })
       j--
     } else if (j == 0) {
@@ -67,9 +59,7 @@ export function diff(
         Type: 'Del',
         Loc: delta + i - 1,
         Ch: s1.charCodeAt(i - 1),
-        Seq: seq,
         Uid: uid,
-        View: view,
       })
       i--
     } else {
@@ -83,9 +73,7 @@ export function diff(
             Type: 'Add',
             Loc: delta + i,
             Ch: s2.charCodeAt(j - 1),
-            Seq: seq,
             Uid: uid,
-            View: view,
           })
           j--
         } else {
@@ -94,9 +82,7 @@ export function diff(
             Type: 'Del',
             Loc: delta + i - 1,
             Ch: s1.charCodeAt(i - 1),
-            Seq: seq,
             Uid: uid,
-            View: view,
           })
           i--
         }
@@ -107,6 +93,7 @@ export function diff(
   return res.reverse()
 }
 
+// modify o2 to take into account o1 happening first
 export function xform(o1: Op[], o2: Op[]): Op[] {
   let res: Op[] = []
 
@@ -120,8 +107,10 @@ export function xform(o1: Op[], o2: Op[]): Op[] {
       res[res.length - 1].Loc += delta
       j++
     } else if (o1[i].Loc == o2[j].Loc) {
-      if (o1[i].Type == 'Add' && o2[j].Type == 'Add') {
-        // two deletes so skip
+      if (o1[i].Type == 'Del' && o2[j].Type == 'Del') {
+        // two deletes turn to NOOP
+        o2[j].Type = 'NOOP'
+        res.push(o2[j])
         j++
         i++
         delta--
@@ -175,11 +164,15 @@ export function applyPos(pos: [number, number], ops: Op[]): [number, number] {
 }
 
 export function applyString(base: string, ops: Op[]): string {
+  console.log(JSON.stringify(ops))
   let res = ''
 
   let i = 0
   for (let j = 0; j < ops.length; j++) {
     let op = ops[j]
+    if (op.Type == 'NOOP') {
+      continue
+    }
     res += base.substring(i, op.Loc)
     i = op.Loc
 

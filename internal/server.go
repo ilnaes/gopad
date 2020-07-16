@@ -60,32 +60,28 @@ type Server struct {
 func (s *Server) handle(r Request) {
 	doc := s.Docs[r.DocId]
 
-	var ops [][]Op
-
-	// trim previously applied ops
-	for i, op := range r.Ops {
-		if op[0].Seq >= doc.AppliedSeqs[r.Uid] {
-			ops = r.Ops[i:]
-			break
-		}
+	// incorrect sequence
+	if r.Seq != doc.AppliedSeqs[r.Uid] {
+		return
 	}
+
+	ops := r.Ops
 
 	// xform
 	view := doc.Doc.View
-	for i, op := range ops {
-		fmt.Printf("BEFORE: %v\n", op)
-		for _, op1 := range doc.Log[len(doc.Log)-(view-op[0].View):] {
-			if op[0].Uid != op1[0].Uid {
-				op = Xform(op1, op)
-				ops[i] = op
-			}
-		}
-		fmt.Printf("AFTER: %v\n", op)
-		doc.Doc.ApplyOps(op)
+	fmt.Println("--- HANDLE ---")
+	for _, op := range r.Ops {
+		fmt.Printf("%+v\n", op)
 	}
+	for _, op := range doc.Log[len(doc.Log)-(view-r.View):] {
+		if r.Uid != op[0].Uid {
+			ops = Xform(op, ops)
+		}
+	}
+	doc.Doc.ApplyOps(ops)
 
-	doc.Log = append(doc.Log, ops...)
-	doc.AppliedSeqs[r.Uid] = doc.Log[len(doc.Log)-1][0].Seq + 1
+	doc.Log = append(doc.Log, ops)
+	doc.AppliedSeqs[r.Uid] = r.Seq + 1
 
 	if doc.NextSeq[r.Uid] < doc.AppliedSeqs[r.Uid] {
 		doc.NextSeq[r.Uid] = doc.AppliedSeqs[r.Uid]

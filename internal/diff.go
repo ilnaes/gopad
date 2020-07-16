@@ -15,7 +15,6 @@ func diff(s1, s2 []byte) []Op {
 	dp[0] = make([]int, len(s2)+1)
 
 	// DP to calculate diff
-	// TODO: maybe make top-down
 	for j := 0; j < len(s2)+1; j++ {
 		dp[0][j] = j
 	}
@@ -121,7 +120,9 @@ func Xform(o1, o2 []Op) []Op {
 			j++
 		} else if o1[i].Loc == o2[j].Loc {
 			if o1[i].Type == Del && o2[j].Type == Del {
-				// two deletes so skip
+				// two deletes turn to NOOP
+				o2[j].Type = NOOP
+				res = append(res, o2[j])
 				j++
 				i++
 				delta--

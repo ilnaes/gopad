@@ -83,8 +83,8 @@ func (c *Client) handleOps(m Request) {
 	c.doc.mu.Lock()
 
 	seq := c.doc.NextSeq[c.uid]
-	if m.Ops[0][0].Seq > seq+1 {
-		// too high sequence number
+	if m.Seq != seq {
+		// incorrect sequence number
 		// TODO: figure out error flagging
 		c.doc.mu.Unlock()
 		c.s.docs.RUnlock()
@@ -107,19 +107,13 @@ func (c *Client) handleOps(m Request) {
 
 		c.write(res)
 	} else {
-		N := len(m.Ops)
-
-		lastSeq := m.Ops[N-1][0].Seq
-
 		c.s.cl.Lock()
-		if lastSeq >= c.doc.NextSeq[c.uid] {
-			// something new
-			m.Num = c.s.LastCommit
-			c.s.LastCommit++
+		// something new
+		m.Num = c.s.LastCommit
+		c.s.LastCommit++
 
-			c.s.CommitLog = append(c.s.CommitLog, m)
-			c.doc.NextSeq[c.uid] = lastSeq + 1
-		}
+		c.s.CommitLog = append(c.s.CommitLog, m)
+		c.doc.NextSeq[c.uid] = m.Seq + 1
 		c.s.cl.Unlock()
 
 		c.doc.mu.Unlock()
@@ -127,7 +121,7 @@ func (c *Client) handleOps(m Request) {
 
 		c.write(Response{
 			Type: Ack,
-			Seq:  lastSeq,
+			Seq:  seq,
 		})
 	}
 }

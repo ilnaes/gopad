@@ -1,7 +1,7 @@
 import { Req, Res, Op } from './main.js'
 import { diff, applyString, applyPos, xform, sleep } from './utils.js'
 
-const PULL_INTERVAL = 2000
+const PULL_INTERVAL = 1000
 
 export class App {
   docId: number = -1
@@ -10,15 +10,14 @@ export class App {
   pollStart: boolean = false
   commitStart: boolean = false
 
-  view: number = -1
-  seq: number = 0
-  discardPoint: number = -1
-  commitPoint: number = 0
-  opsPoint: number = 0
-
   base: string = ''
-  prev: string = ''
+  curr: string = ''
+  delta: Op[] = []
   ops: Op[][] = []
+
+  view: number = -1 // view of base
+  seq: number = 0
+  seenseq: number = -1
 
   textbox: HTMLTextAreaElement
   ws?: WebSocket
@@ -34,7 +33,6 @@ export class App {
     }
 
     this.textbox = document.querySelector('#textbox') as HTMLTextAreaElement
-    this.textbox.addEventListener('input', (e) => this.handleEvent())
 
     this.connect()
   }
@@ -59,65 +57,6 @@ export class App {
     }
   }
 
-  // push changes to server
-  async commit() {
-    if (this.commitStart) {
-      return
-    }
-
-    this.commitStart = true
-    while (true) {
-      if (this.ws && this.ws.readyState == WebSocket.OPEN) {
-        if (this.ops.length > 0) {
-          let req: Req = {
-            IsQuery: false,
-            View: this.view,
-            DocId: this.docId,
-            Uid: this.uid,
-            Ops: this.ops,
-          }
-          try {
-            this.ws.send(JSON.stringify(req))
-          } catch (_) {
-            this.commitStart = false
-            break
-          }
-        }
-      }
-
-      await sleep(PULL_INTERVAL)
-    }
-  }
-
-  // enqueues an Op sequence from Worker
-  async handleWorker(e: MessageEvent) {
-    let [ops, seq]: [Op[], number] = e.data
-    while (true) {
-      // make sure to push in order
-      if (this.opsPoint == seq) {
-        this.ops.push(ops)
-        this.opsPoint++
-        break
-      }
-
-      await sleep(100)
-    }
-    console.log(this.ops)
-  }
-
-  // when textbox changes ask Worker to compute diff
-  async handleEvent() {
-    this.worker.postMessage([
-      this.view,
-      this.uid,
-      this.seq,
-      this.prev,
-      this.textbox.value,
-    ])
-    this.prev = this.textbox.value
-    this.seq++
-  }
-
   // continuously query the server
   async poll() {
     if (this.pollStart) {
@@ -132,6 +71,7 @@ export class App {
           DocId: this.docId,
           Uid: this.uid,
           View: this.view,
+          Seq: 0,
         }
         try {
           this.ws.send(JSON.stringify(req))
@@ -145,7 +85,103 @@ export class App {
     }
   }
 
-  async handleResp(event: MessageEvent) {
+  // push changes to server
+  async commit() {
+    if (this.commitStart) {
+      return
+    }
+
+    this.commitStart = true
+    while (true) {
+      if (this.ws && this.ws.readyState == WebSocket.OPEN) {
+        if (this.delta.length > 0) {
+          this.delta[0].Seq = this.seq
+
+          let req: Req = {
+            IsQuery: false,
+            View: this.view,
+            DocId: this.docId,
+            Uid: this.uid,
+
+            Seq: this.seq,
+            Ops: this.delta,
+          }
+          try {
+            this.ws.send(JSON.stringify(req))
+          } catch (_) {
+            this.commitStart = false
+            break
+          }
+        }
+      }
+
+      this.updateState()
+      await sleep(PULL_INTERVAL)
+    }
+  }
+
+  // processes the changes to state from a Worker
+  handleWorker(e: MessageEvent) {
+    let [val, seq, view, base, curr, val1, delta, delta1]: [
+      string,
+      number,
+      number,
+      string,
+      string,
+      string,
+      Op[],
+      Op[]
+    ] = e.data
+    // delta: base -> curr
+    // delta1: curr -> val1
+
+    if (this.textbox.value == val && this.view <= view) {
+      this.base = base
+      this.textbox.value = val1
+      // this.textbox.setSelectionRange(pos[0], pos[1])
+
+      this.ops = this.ops.splice(view - this.view)
+      this.view = view
+
+      if (
+        seq > this.seenseq ||
+        (this.delta.length == 0 && delta1.length != 0)
+      ) {
+        // create a new delta to send
+        this.delta = delta1
+        this.base = curr
+        this.curr = val1
+
+        if (seq > this.seenseq) {
+          this.seenseq = seq
+          this.seq = seq + 1
+          console.log(this.seq)
+        }
+      } else {
+        this.delta = delta
+        this.curr = curr
+      }
+    }
+  }
+
+  // sends current state with ops to be applied
+  updateState() {
+    // let pos: [number, number] = [
+    //   this.textbox.selectionStart,
+    //   this.textbox.selectionEnd,
+    // ]
+    this.worker.postMessage([
+      this.ops,
+      this.uid,
+      this.base,
+      this.view,
+      this.delta,
+      this.curr,
+      this.textbox.value,
+    ])
+  }
+
+  handleResp(event: MessageEvent) {
     let resp: Res = JSON.parse(event.data)
 
     if (this.view == -1 && resp.Type != 'DocRes') {
@@ -161,52 +197,23 @@ export class App {
 
         this.textbox.disabled = false
         this.textbox.value = resp.Body
-        this.prev = resp.Body
+        this.curr = resp.Body
         break
       }
       case 'OpsRes': {
-        if (this.view < resp.View) {
+        if (this.view + this.ops.length < resp.View) {
           break
         }
 
-        if (this.view < resp.View + resp.Ops.length) {
-          let pos: [number, number] = [
-            this.textbox.selectionStart,
-            this.textbox.selectionEnd,
-          ]
-
-          // prune ops that have been seen
-          for (let i = resp.Ops.length - 1; i >= 0; i--) {
-            if (resp.Ops[i][0].Uid == this.uid) {
-              this.ops = this.ops.splice(
-                this.ops.length - (this.seq - resp.Ops[i][0].Seq - 1)
-              )
-              break
-            }
+        if (this.view + this.ops.length < resp.View + resp.Ops.length) {
+          // enqueue all new ops
+          for (
+            let i = this.view + this.ops.length - resp.View;
+            i < resp.Ops.length;
+            i++
+          ) {
+            this.ops.push(resp.Ops[i])
           }
-
-          // apply to base and xform log
-          console.log(resp.Ops)
-          for (let i = this.view - resp.View; i < resp.Ops.length; i++) {
-            this.base = applyString(this.base, resp.Ops[i])
-
-            if (resp.Ops[i][0].Uid != this.uid) {
-              for (let j = 0; j < this.ops.length; j++) {
-                this.ops[j] = xform(resp.Ops[i], this.ops[j])
-              }
-              pos = applyPos(pos, resp.Ops[i])
-            }
-          }
-
-          // update textbox
-          this.textbox.value = this.base
-          for (let i = 0; i < this.ops.length; i++) {
-            this.textbox.value = applyString(this.textbox.value, this.ops[i])
-          }
-          this.prev = this.textbox.value
-          this.textbox.setSelectionRange(pos[0], pos[1])
-
-          this.view = resp.View + resp.Ops.length
         }
         break
       }
