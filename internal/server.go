@@ -102,7 +102,7 @@ func (s *Server) update() {
 		if len(tmp) > 0 {
 			req := make([]interface{}, len(tmp))
 			for i, x := range tmp {
-				log.Printf("Saving req %d\n", x.Num)
+				// log.Printf("Saving req %d\n", x.Num)
 				req[i] = interface{}(x)
 			}
 

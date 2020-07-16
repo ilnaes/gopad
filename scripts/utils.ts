@@ -164,7 +164,6 @@ export function applyPos(pos: [number, number], ops: Op[]): [number, number] {
 }
 
 export function applyString(base: string, ops: Op[]): string {
-  console.log(JSON.stringify(ops))
   let res = ''
 
   let i = 0

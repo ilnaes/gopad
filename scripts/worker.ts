@@ -21,18 +21,24 @@ function handleMessage(e: MessageEvent) {
     string
   ] = e.data
 
-  let delta1 = diff(curr, val, uid)
+  let delta1 = diff(base, val, uid)
   let seq1 = -1
+  let val1 = ''
 
   for (let i = 0; i < ops.length; i++) {
-    base = applyString(base, ops[i])
-
     if (ops[i][0].Uid == uid) {
-      // found delta
+      // found delta so change delta1 to not
+      // incorporate it
       seq1 = ops[i][0].Seq!
+
+      val1 = applyString(base, delta1)
+      base = applyString(base, ops[i])
+      delta1 = diff(base, val1, uid)
     } else {
       delta = xform(ops[i], delta)
       delta1 = xform(ops[i], delta1)
+
+      base = applyString(base, ops[i])
       //     pos = applyPos(pos, resp.Ops[i])
     }
   }
@@ -44,8 +50,12 @@ function handleMessage(e: MessageEvent) {
     curr = base
   }
 
-  let val1 = applyString(curr, delta1)
+  val1 = applyString(base, delta1)
   //     pos = applyPos(pos, resp.Ops[i])
+
+  if (seq1 == -1) {
+    delta1 = diff(curr, val1, uid)
+  }
 
   postMessage([val, seq1, view + ops.length, base, curr, val1, delta, delta1])
 }
