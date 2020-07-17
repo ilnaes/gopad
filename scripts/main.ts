@@ -36,6 +36,21 @@ export type Req = {
 function main() {
   let split = document.location.pathname.lastIndexOf('/')
   let docId = parseInt(document.location.pathname.slice(split + 1))
+
+  var textarea: HTMLTextAreaElement = document.getElementsByTagName(
+    'textarea'
+  )[0]
+  textarea.onkeydown = function (e) {
+    if (e.key == 'Tab') {
+      e.preventDefault()
+      var s = textarea.selectionStart
+      textarea.value =
+        textarea.value.substring(0, textarea.selectionStart) +
+        '\t' +
+        textarea.value.substring(textarea.selectionEnd)
+      textarea.selectionEnd = s + 1
+    }
+  }
   let app = new App(docId)
 }
 

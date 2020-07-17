@@ -1,5 +1,6 @@
 import { Req, Res, Op } from './main.js'
 import { diff, applyString, applyPos, xform, sleep } from './utils.js'
+import { WorkerArg, WorkerRet } from './worker.js'
 
 const PULL_INTERVAL = 1000
 
@@ -122,23 +123,24 @@ export class App {
 
   // processes the changes to state from a Worker
   handleWorker(e: MessageEvent) {
-    let [val, seq, view, base, curr, val1, delta, delta1]: [
-      string,
-      number,
-      number,
-      string,
-      string,
-      string,
-      Op[],
-      Op[]
-    ] = e.data
+    let [
+      val,
+      seq,
+      view,
+      base,
+      curr,
+      val1,
+      delta,
+      delta1,
+      pos,
+    ] = e.data as WorkerRet
     // delta: base -> curr
     // delta1: curr -> val1
 
     if (this.textbox.value == val && this.view <= view) {
       this.base = base
       this.textbox.value = val1
-      // this.textbox.setSelectionRange(pos[0], pos[1])
+      this.textbox.setSelectionRange(pos[0], pos[1])
 
       this.ops = this.ops.splice(view - this.view)
       this.view = view
@@ -166,11 +168,7 @@ export class App {
 
   // sends current state with ops to be applied
   updateState() {
-    // let pos: [number, number] = [
-    //   this.textbox.selectionStart,
-    //   this.textbox.selectionEnd,
-    // ]
-    this.worker.postMessage([
+    let arg: WorkerArg = [
       this.ops,
       this.uid,
       this.base,
@@ -178,7 +176,9 @@ export class App {
       this.delta,
       this.curr,
       this.textbox.value,
-    ])
+      [this.textbox.selectionStart, this.textbox.selectionEnd],
+    ]
+    this.worker.postMessage(arg)
   }
 
   handleResp(event: MessageEvent) {

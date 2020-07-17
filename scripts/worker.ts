@@ -1,5 +1,28 @@
 import { Op } from './main.js'
-import { diff, applyString, xform } from './utils.js'
+import { diff, applyPos, applyString, xform } from './utils.js'
+
+export type WorkerRet = [
+  string,
+  number,
+  number,
+  string,
+  string,
+  string,
+  Op[],
+  Op[],
+  [number, number]
+]
+
+export type WorkerArg = [
+  Op[][],
+  number,
+  string,
+  number,
+  Op[],
+  string,
+  string,
+  [number, number]
+]
 
 // applies ops to state
 // arguments:
@@ -11,15 +34,7 @@ import { diff, applyString, xform } from './utils.js'
 // curr - applyString(delta, base)
 // val - textbox value
 function handleMessage(e: MessageEvent) {
-  let [ops, uid, base, view, delta, curr, val]: [
-    Op[][],
-    number,
-    string,
-    number,
-    Op[],
-    string,
-    string
-  ] = e.data
+  let [ops, uid, base, view, delta, curr, val, pos]: WorkerArg = e.data
 
   let delta1 = diff(base, val, uid)
   let seq1 = -1
@@ -39,25 +54,33 @@ function handleMessage(e: MessageEvent) {
       delta1 = xform(ops[i], delta1)
 
       base = applyString(base, ops[i])
-      //     pos = applyPos(pos, resp.Ops[i])
+      pos = applyPos(pos, ops[i])
     }
   }
 
   if (seq1 == -1) {
     curr = applyString(base, delta)
-    //     pos = applyPos(pos, resp.Ops[i])
   } else {
     curr = base
   }
 
   val1 = applyString(base, delta1)
-  //     pos = applyPos(pos, resp.Ops[i])
 
   if (seq1 == -1) {
     delta1 = diff(curr, val1, uid)
   }
 
-  postMessage([val, seq1, view + ops.length, base, curr, val1, delta, delta1])
+  postMessage([
+    val,
+    seq1,
+    view + ops.length,
+    base,
+    curr,
+    val1,
+    delta,
+    delta1,
+    pos,
+  ] as WorkerRet)
 }
 
 onmessage = (e) => {

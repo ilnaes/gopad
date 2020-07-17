@@ -106,7 +106,7 @@ func (s *Server) update() {
 				req[i] = interface{}(x)
 			}
 
-			// s.db.InsertMany(context.TODO(), req)
+			s.db.InsertMany(context.TODO(), req)
 
 			s.docs.Lock()
 			for _, r := range tmp {
@@ -119,8 +119,8 @@ func (s *Server) update() {
 
 		if i%SnapMult == 0 {
 			// snapshot
-			// s.saveToDisk()
-			// log.Println("Saved to disk")
+			s.saveToDisk()
+			log.Println("Saved to disk")
 		}
 		i++
 	}
@@ -266,7 +266,7 @@ func NewServer(addr string, port int) *Server {
 	s := recoverFromDisk(addr, port)
 	log.Printf("Recovered %d log\n", s.LastCommit)
 
-	// s.recoverFromMongo()
+	s.recoverFromMongo()
 
 	log.Println("Started")
 
