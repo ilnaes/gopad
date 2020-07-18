@@ -1,28 +1,28 @@
 import { Op } from './main.js'
 import { diff, applyPos, applyString, xform } from './utils.js'
 
-export type WorkerRet = [
-  string,
-  number,
-  number,
-  string,
-  string,
-  string,
-  Op[],
-  Op[],
-  [number, number]
-]
+export type WorkerRet = {
+  val: string
+  seq: number | undefined
+  view: number
+  base: string
+  curr: string
+  val1: string
+  delta: Op[]
+  delta1: Op[]
+  pos: [number, number]
+}
 
-export type WorkerArg = [
-  Op[][],
-  number,
-  string,
-  number,
-  Op[],
-  string,
-  string,
-  [number, number]
-]
+export type WorkerArg = {
+  ops: Op[][]
+  uid: number
+  base: string
+  view: number
+  delta: Op[]
+  curr: string
+  val: string
+  pos: [number, number]
+}
 
 // applies ops to state
 // arguments:
@@ -34,53 +34,54 @@ export type WorkerArg = [
 // curr - applyString(delta, base)
 // val - textbox value
 function handleMessage(e: MessageEvent) {
-  let [ops, uid, base, view, delta, curr, val, pos]: WorkerArg = e.data
+  const args: WorkerArg = e.data
 
-  let delta1 = diff(base, val, uid)
-  let seq1 = -1
-  let val1 = ''
+  let delta1 = diff(args.base, args.val, args.uid)
+  let seq1 = undefined
 
-  for (let i = 0; i < ops.length; i++) {
-    if (ops[i][0].Uid == uid) {
+  for (let i = 0; i < args.ops.length; i++) {
+    if (args.ops[i][0].Uid == args.uid) {
       // found delta so change delta1 to not
       // incorporate it
-      seq1 = ops[i][0].Seq!
+      if (args.ops[i][0].Seq !== undefined) {
+        seq1 = args.ops[i][0].Seq
+      }
 
-      val1 = applyString(base, delta1)
-      base = applyString(base, ops[i])
-      delta1 = diff(base, val1, uid)
+      const val1 = applyString(args.base, delta1)
+      args.base = applyString(args.base, args.ops[i])
+      delta1 = diff(args.base, val1, args.uid)
     } else {
-      delta = xform(ops[i], delta)
-      delta1 = xform(ops[i], delta1)
+      args.delta = xform(args.ops[i], args.delta)
+      delta1 = xform(args.ops[i], delta1)
 
-      base = applyString(base, ops[i])
-      pos = applyPos(pos, ops[i])
+      args.base = applyString(args.base, args.ops[i])
+      args.pos = applyPos(args.pos, args.ops[i])
     }
   }
 
-  if (seq1 == -1) {
-    curr = applyString(base, delta)
+  if (seq1 == undefined) {
+    args.curr = applyString(args.base, args.delta)
   } else {
-    curr = base
+    args.curr = args.base
   }
 
-  val1 = applyString(base, delta1)
+  const val1 = applyString(args.base, delta1)
 
-  if (seq1 == -1) {
-    delta1 = diff(curr, val1, uid)
+  if (seq1 == undefined) {
+    delta1 = diff(args.curr, val1, args.uid)
   }
 
-  postMessage([
-    val,
-    seq1,
-    view + ops.length,
-    base,
-    curr,
-    val1,
-    delta,
-    delta1,
-    pos,
-  ] as WorkerRet)
+  postMessage({
+    val: args.val,
+    seq: seq1,
+    view: args.view + args.ops.length,
+    base: args.base,
+    curr: args.curr,
+    val1: val1,
+    delta: args.delta,
+    delta1: delta1,
+    pos: args.pos,
+  } as WorkerRet)
 }
 
 onmessage = (e) => {

@@ -1,4 +1,4 @@
-import { Op, State } from './main.js'
+import { Op } from './main.js'
 
 // diff that turns s1 -> s2
 export function diff(s1: string, s2: string, uid: number): Op[] {
@@ -22,7 +22,7 @@ export function diff(s1: string, s2: string, uid: number): Op[] {
     }
   }
 
-  let dp = new Array(s1.length + 1)
+  const dp = new Array(s1.length + 1)
   dp[0] = Array.from(Array(s2.length + 1).keys())
 
   // DP to calculate diff
@@ -42,7 +42,7 @@ export function diff(s1: string, s2: string, uid: number): Op[] {
   let i = s1.length
   let j = s2.length
 
-  let res: Op[] = []
+  const res: Op[] = []
 
   // collect diff into slice
   while (i > 0 || j > 0) {
@@ -95,7 +95,7 @@ export function diff(s1: string, s2: string, uid: number): Op[] {
 
 // modify o2 to take into account o1 happening first
 export function xform(o1: Op[], o2: Op[]): Op[] {
-  let res: Op[] = []
+  const res: Op[] = []
 
   let i = 0
   let j = 0
@@ -139,9 +139,9 @@ export function xform(o1: Op[], o2: Op[]): Op[] {
 }
 
 export function applyPos(pos: [number, number], ops: Op[]): [number, number] {
-  let res: [number, number] = [...pos]
+  const res: [number, number] = [...pos]
   for (let j = 0; j < ops.length; j++) {
-    let op = ops[j]
+    const op = ops[j]
 
     if (op.Loc >= pos[1]) {
       break
@@ -168,7 +168,7 @@ export function applyString(base: string, ops: Op[]): string {
 
   let i = 0
   for (let j = 0; j < ops.length; j++) {
-    let op = ops[j]
+    const op = ops[j]
     if (op.Type == 'NOOP') {
       continue
     }
@@ -189,6 +189,6 @@ export function applyString(base: string, ops: Op[]): string {
   return res
 }
 
-export function sleep(milliseconds: number) {
+export async function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
