@@ -61,7 +61,7 @@ func (s *Server) handle(r Request) {
 	doc := s.Docs[r.DocId]
 
 	// incorrect sequence
-	if r.Seq != doc.AppliedSeqs[r.Uid] {
+	if r.Seq != doc.AppliedSeq[r.Uid] {
 		return
 	}
 
@@ -74,17 +74,18 @@ func (s *Server) handle(r Request) {
 		fmt.Printf("%+v\n", op)
 	}
 	for _, op := range doc.Log[len(doc.Log)-(view-r.View):] {
-		if r.Uid != op[0].Uid {
+		if !(r.Uid == op[0].Uid && r.Ops[0].Session == op[0].Session) {
+			// xform if op is not from the same session
 			ops = Xform(op, ops)
 		}
 	}
 	doc.Doc.ApplyOps(ops)
 
 	doc.Log = append(doc.Log, ops)
-	doc.AppliedSeqs[r.Uid] = r.Seq + 1
+	doc.AppliedSeq[r.Uid] = r.Seq + 1
 
-	if doc.NextSeq[r.Uid] < doc.AppliedSeqs[r.Uid] {
-		doc.NextSeq[r.Uid] = doc.AppliedSeqs[r.Uid]
+	if doc.NextSeq[r.Uid] < doc.AppliedSeq[r.Uid] {
+		doc.NextSeq[r.Uid] = doc.AppliedSeq[r.Uid]
 	}
 }
 
@@ -106,7 +107,7 @@ func (s *Server) update() {
 				req[i] = interface{}(x)
 			}
 
-			s.db.InsertMany(context.TODO(), req)
+			// s.db.InsertMany(context.TODO(), req)
 
 			s.docs.Lock()
 			for _, r := range tmp {
@@ -248,10 +249,10 @@ func (s *Server) recoverFromMongo() {
 					View:  0,
 					DocId: req.DocId,
 				},
-				Log:         [][]Op{},
-				NextSeq:     make(map[int64]int, 0),
-				AppliedSeqs: make(map[int64]int, 0),
-				DocId:       req.DocId,
+				Log:        [][]Op{},
+				NextSeq:    make(map[int64]int, 0),
+				AppliedSeq: make(map[int64]int, 0),
+				DocId:      req.DocId,
 			}
 		}
 
@@ -266,7 +267,7 @@ func NewServer(addr string, port int) *Server {
 	s := recoverFromDisk(addr, port)
 	log.Printf("Recovered %d log\n", s.LastCommit)
 
-	s.recoverFromMongo()
+	// s.recoverFromMongo()
 
 	log.Println("Started")
 
@@ -330,10 +331,10 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 				DocId: id,
 			},
 
-			Log:         [][]Op{},
-			NextSeq:     make(map[int64]int, 0),
-			AppliedSeqs: make(map[int64]int, 0),
-			DocId:       id,
+			Log:        [][]Op{},
+			NextSeq:    make(map[int64]int, 0),
+			AppliedSeq: make(map[int64]int, 0),
+			DocId:      id,
 		}
 	}
 	s.docs.Unlock()

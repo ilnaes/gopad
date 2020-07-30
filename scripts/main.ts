@@ -13,6 +13,7 @@ export type Op = {
   Seq?: number
 
   Uid: number
+  Session: number
 }
 
 export type Res = {

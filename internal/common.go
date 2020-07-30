@@ -45,7 +45,8 @@ type Op struct {
 	Ch   byte
 	Seq  int // purely for client-side
 
-	Uid int64
+	Uid     int64
+	Session int64
 }
 
 type DocMeta struct {
@@ -53,7 +54,7 @@ type DocMeta struct {
 
 	Log         [][]Op        // one update is a collection of ops from one diff
 	NextSeq     map[int64]int // expected next seq from user
-	AppliedSeqs map[int64]int // all seqs up to this from user have been applied
+	AppliedSeq  map[int64]int // all seqs up to this from user have been applied
 	NextDiscard int
 	DocId       int64
 

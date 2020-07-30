@@ -32,7 +32,7 @@ func (c *Client) handleQuery(view int) {
 	c.s.docs.RLock()
 	c.doc.mu.Lock()
 
-	seq := c.doc.NextSeq[c.uid]
+	seq := c.doc.AppliedSeq[c.uid]
 	if view > c.doc.Doc.View {
 		c.doc.mu.Unlock()
 		c.s.docs.RUnlock()

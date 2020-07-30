@@ -1,7 +1,7 @@
 import { Op } from './main.js'
 
 // diff that turns s1 -> s2
-export function diff(s1: string, s2: string, uid: number): Op[] {
+export function diff(s1: string, s2: string, uid: number, sess: number): Op[] {
   // trim beginning
   let delta = 0
   for (let i = 0; i < Math.min(s1.length, s2.length); i++) {
@@ -52,6 +52,7 @@ export function diff(s1: string, s2: string, uid: number): Op[] {
         Loc: delta + i,
         Ch: s2.charCodeAt(j - 1),
         Uid: uid,
+        Session: sess,
       })
       j--
     } else if (j == 0) {
@@ -60,6 +61,7 @@ export function diff(s1: string, s2: string, uid: number): Op[] {
         Loc: delta + i - 1,
         Ch: s1.charCodeAt(i - 1),
         Uid: uid,
+        Session: sess,
       })
       i--
     } else {
@@ -74,6 +76,7 @@ export function diff(s1: string, s2: string, uid: number): Op[] {
             Loc: delta + i,
             Ch: s2.charCodeAt(j - 1),
             Uid: uid,
+            Session: sess,
           })
           j--
         } else {
@@ -83,6 +86,7 @@ export function diff(s1: string, s2: string, uid: number): Op[] {
             Loc: delta + i - 1,
             Ch: s1.charCodeAt(i - 1),
             Uid: uid,
+            Session: sess,
           })
           i--
         }

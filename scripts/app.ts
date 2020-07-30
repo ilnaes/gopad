@@ -7,6 +7,7 @@ const PULL_INTERVAL = 1000
 export class App {
   docId: number
   uid: number
+  session: number
 
   pollStart = false
   commitStart = false
@@ -26,6 +27,7 @@ export class App {
 
   constructor(docId: number) {
     this.docId = docId
+    this.session = Math.floor(Math.random() * 1e18)
     this.uid = Math.floor(Math.random() * 1e18)
 
     this.worker = new Worker('../static/worker.js', { type: 'module' })
@@ -137,6 +139,7 @@ export class App {
       delta,
       delta1,
       pos,
+      found,
     } = e.data as WorkerRet
     // delta: base -> curr
     // delta1: curr -> val1
@@ -149,20 +152,17 @@ export class App {
       this.ops = this.ops.splice(view - this.view)
       this.view = view
 
-      if (
-        (seq !== undefined && seq > this.seenseq) ||
-        (this.delta.length == 0 && delta1.length != 0)
-      ) {
+      if (seq !== undefined && seq > this.seenseq) {
+        this.seenseq = seq
+        this.seq = seq + 1
+        console.log(this.seq)
+      }
+
+      if (found || (this.delta.length == 0 && delta1.length != 0)) {
         // create a new delta to send
         this.delta = delta1
         this.base = curr
         this.curr = val1
-
-        if (seq !== undefined && seq > this.seenseq) {
-          this.seenseq = seq
-          this.seq = seq + 1
-          console.log(this.seq)
-        }
       } else {
         this.delta = delta
         this.curr = curr
@@ -175,6 +175,7 @@ export class App {
     const arg: WorkerArg = {
       ops: this.ops,
       uid: this.uid,
+      session: this.session,
       base: this.base,
       view: this.view,
       delta: this.delta,
