@@ -267,7 +267,7 @@ func NewServer(addr string, port int) *Server {
 	s := recoverFromDisk(addr, port)
 	log.Printf("Recovered %d log\n", s.LastCommit)
 
-	// s.recoverFromMongo()
+	s.recoverFromMongo()
 
 	log.Println("Started")
 
