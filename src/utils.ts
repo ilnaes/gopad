@@ -1,4 +1,4 @@
-import { Op } from './index'
+import { Op } from './app'
 
 // diff that turns s1 -> s2
 export function diff(s1: string, s2: string, uid: number, sess: number): Op[] {

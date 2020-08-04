@@ -1,4 +1,4 @@
-import { Op } from './index'
+import { Op } from './app'
 import { diff, applyPos, applyString, xform } from './utils'
 
 // We alias self to ctx and give it our newly created type

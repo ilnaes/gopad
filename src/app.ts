@@ -1,11 +1,66 @@
-import { Req, Res, Op } from './index'
 import { sleep } from './utils'
 import type { WorkerArg, WorkerRet } from './worker'
 import DiffWorker from 'worker-loader!./worker'
 
 const PULL_INTERVAL = 1000
 
+export class State {
+  body = ''
+  selStart = 0
+  selEnd = 0
+}
+
+export type Op = {
+  Loc: number
+  Ch: number
+  Type: string
+  Seq?: number
+
+  Uid: number
+  Session: number
+}
+
+export type Res = {
+  Type: string
+  Body: string
+  View: number
+  Seq: number
+  Ops: Op[][]
+}
+
+export type Req = {
+  IsQuery: boolean
+  DocId: number
+  Uid: number
+  View: number
+
+  Seq: number
+  Ops?: Op[]
+}
+
+export function start(): App {
+  const split = document.location.pathname.lastIndexOf('/')
+  const docId = parseInt(document.location.pathname.slice(split + 1))
+
+  const textarea: HTMLTextAreaElement = document.getElementsByTagName(
+    'textarea'
+  )[0]
+  textarea.onkeydown = function (e) {
+    if (e.key == 'Tab') {
+      e.preventDefault()
+      const s = textarea.selectionStart
+      textarea.value =
+        textarea.value.substring(0, textarea.selectionStart) +
+        '\t' +
+        textarea.value.substring(textarea.selectionEnd)
+      textarea.selectionEnd = s + 1
+    }
+  }
+  return new App(docId)
+}
+
 export class App {
+  alive = true
   docId: number
   uid: number
   session: number
@@ -42,6 +97,11 @@ export class App {
     this.connect()
   }
 
+  kill(): void {
+    this.alive = false
+    this.ws.close()
+  }
+
   connect(): void {
     this.ws = new WebSocket('ws://localhost:8080/ws/' + this.docId.toString())
 
@@ -56,7 +116,9 @@ export class App {
     this.ws.onmessage = (e) => this.handleResp(e)
 
     this.ws.onclose = () => {
-      this.connect()
+      if (this.alive) {
+        this.connect()
+      }
     }
 
     this.ws.onerror = () => {
@@ -73,7 +135,7 @@ export class App {
     }
 
     this.pollStart = true
-    for (;;) {
+    while (this.alive) {
       if (this.ws && this.ws.readyState == WebSocket.OPEN) {
         const req: Req = {
           IsQuery: true,
@@ -101,7 +163,7 @@ export class App {
     }
 
     this.commitStart = true
-    for (;;) {
+    while (this.alive) {
       if (this.ws && this.ws.readyState == WebSocket.OPEN) {
         if (this.delta.length > 0) {
           this.delta[0].Seq = this.seq
