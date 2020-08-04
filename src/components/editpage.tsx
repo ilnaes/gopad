@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { start } from '../app'
+import { start } from '../pad'
 
 export class Hello extends React.Component {
   componentDidMount(): void {

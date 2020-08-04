@@ -21,17 +21,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const editpage = `<html>
-    <head>
-        <script src="/dist/bundle.js" type="module"></script>
-    </head>
-    <body>
-        <center>
-            <textarea id="textbox" name="textbox" rows="45" cols="150" disabled></textarea>
-        </center>
-    </body>
-</html>`
-
 const (
 	UpdateInterval = 250 * time.Millisecond
 	SnapMult       = 100
@@ -52,7 +41,8 @@ type Server struct {
 	port int
 	addr string
 
-	db *mongo.Collection
+	db    *mongo.Collection
+	users *mongo.Collection
 }
 
 // processes a request
@@ -120,8 +110,8 @@ func (s *Server) update() {
 
 		if i%SnapMult == 0 {
 			// snapshot
-			s.saveToDisk()
-			log.Println("Saved to disk")
+			// s.saveToDisk()
+			// log.Println("Saved to disk")
 		}
 		i++
 	}
@@ -210,6 +200,7 @@ func (s *Server) recoverFromMongo() {
 	client, _ := mongo.Connect(context.TODO(), opt)
 
 	s.db = client.Database("gopad").Collection("log")
+	s.users = client.Database("gopad").Collection("users")
 
 	// check json not ahead of db somehow
 	if s.LastCommit != 0 {
@@ -267,7 +258,7 @@ func NewServer(addr string, port int) *Server {
 	s := recoverFromDisk(addr, port)
 	log.Printf("Recovered %d log\n", s.LastCommit)
 
-	s.recoverFromMongo()
+	// s.recoverFromMongo()
 
 	log.Println("Started")
 
@@ -339,6 +330,11 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 	}
 	s.docs.Unlock()
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, editpage)
+	http.ServeFile(w, r, "index.html")
+}
+
+func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+}
+
+func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 }

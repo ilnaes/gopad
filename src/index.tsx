@@ -1,6 +1,6 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
-import { Hello } from './components/editpage'
+import { App } from './components/app'
 
-ReactDOM.render(<Hello />, document.getElementById('example'))
+ReactDOM.render(<App />, document.getElementById('example'))

@@ -18,6 +18,11 @@ func Run(port int) {
 
 	r.HandleFunc("/edit/{docid}", server.edit)
 	r.HandleFunc("/ws/{docid}", server.ws)
+	r.HandleFunc("/login", server.login)
+	r.HandleFunc("/register", server.register)
+	r.HandleFunc("/index", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	})
 	r.PathPrefix("/dist/").Handler(http.StripPrefix("/dist/", http.FileServer(http.Dir("dist/"))))
 
 	srv := &http.Server{

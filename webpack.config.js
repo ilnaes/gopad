@@ -3,7 +3,7 @@ const path = require('path')
 
 module.exports = {
   mode: 'development',
-  entry: './src/index.ts',
+  entry: './src/index.tsx',
   devtool: 'inline-source-map',
   // plugins: [
   //   new HtmlWebpackPlugin({
@@ -26,7 +26,7 @@ module.exports = {
     ],
   },
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: ['.tsx', '.ts', '.js'],
   },
   output: {
     // This is required so workers are known where to be loaded from

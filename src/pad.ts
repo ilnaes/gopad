@@ -38,7 +38,7 @@ export type Req = {
   Ops?: Op[]
 }
 
-export function start(): App {
+export function start(): Pad {
   const split = document.location.pathname.lastIndexOf('/')
   const docId = parseInt(document.location.pathname.slice(split + 1))
 
@@ -56,10 +56,10 @@ export function start(): App {
       textarea.selectionEnd = s + 1
     }
   }
-  return new App(docId)
+  return new Pad(docId)
 }
 
-export class App {
+export class Pad {
   alive = true
   docId: number
   uid: number
