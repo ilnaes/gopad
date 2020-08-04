@@ -1,5 +1,8 @@
-import { Op } from './main.js'
-import { diff, applyPos, applyString, xform } from './utils.js'
+import { Op } from './index'
+import { diff, applyPos, applyString, xform } from './utils'
+
+// We alias self to ctx and give it our newly created type
+const ctx: Worker = self as any
 
 export type WorkerRet = {
   val: string
@@ -35,7 +38,7 @@ export type WorkerArg = {
 // delta - current outstanding op commit
 // curr - applyString(delta, base)
 // val - textbox value
-function handleMessage(e: MessageEvent) {
+ctx.addEventListener('message', (e: MessageEvent) => {
   const args: WorkerArg = e.data
 
   // delta1 is base -> val
@@ -79,7 +82,7 @@ function handleMessage(e: MessageEvent) {
     delta1 = diff(args.curr, val1, args.uid, args.session)
   }
 
-  postMessage({
+  ctx.postMessage({
     val: args.val,
     seq: seq1,
     view: args.view + args.ops.length,
@@ -91,8 +94,4 @@ function handleMessage(e: MessageEvent) {
     pos: args.pos,
     found: found,
   } as WorkerRet)
-}
-
-onmessage = (e) => {
-  handleMessage(e)
-}
+})

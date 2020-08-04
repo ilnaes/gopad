@@ -23,7 +23,7 @@ import (
 
 const editpage = `<html>
     <head>
-        <script src="/static/main.js" type="module"></script>
+        <script src="/dist/bundle.js" type="module"></script>
     </head>
     <body>
         <center>

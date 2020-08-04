@@ -1,6 +1,7 @@
 .env
 *.swp
 tags
-node_modules/
+node_modules
+dist
 static/*.js
 snapshot-*.json

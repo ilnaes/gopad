@@ -12,7 +12,7 @@ test:
 run: 
 	$(GORUN) cmd/gopad/main.go
 
-tsc: $(shell find scripts -name "*.ts")
+tsc: $(shell find src -name "*.ts")
 	npm run compile
 
 clean:

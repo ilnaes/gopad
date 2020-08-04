@@ -1,6 +1,7 @@
-import { Req, Res, Op } from './main.js'
-import { sleep } from './utils.js'
-import type { WorkerArg, WorkerRet } from './worker.js'
+import { Req, Res, Op } from './index'
+import { sleep } from './utils'
+import type { WorkerArg, WorkerRet } from './worker'
+import DiffWorker from 'worker-loader!./worker'
 
 const PULL_INTERVAL = 1000
 
@@ -30,7 +31,8 @@ export class App {
     this.session = Math.floor(Math.random() * 1e18)
     this.uid = Math.floor(Math.random() * 1e18)
 
-    this.worker = new Worker('../static/worker.js', { type: 'module' })
+    // this.worker = new Worker('../static/worker.js', { type: 'module' })
+    this.worker = new DiffWorker()
     this.worker.onmessage = (e) => {
       this.handleWorker(e)
     }

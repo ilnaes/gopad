@@ -18,7 +18,7 @@ func Run(port int) {
 
 	r.HandleFunc("/edit/{docid}", server.edit)
 	r.HandleFunc("/ws/{docid}", server.ws)
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
+	r.PathPrefix("/dist/").Handler(http.StripPrefix("/dist/", http.FileServer(http.Dir("dist/"))))
 
 	srv := &http.Server{
 		Handler: r,
