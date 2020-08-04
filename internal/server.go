@@ -41,6 +41,8 @@ type Server struct {
 	port int
 	addr string
 
+	secret []byte
+
 	db    *mongo.Collection
 	users *mongo.Collection
 }
@@ -190,9 +192,6 @@ func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
 }
 
 func (s *Server) recoverFromMongo() {
-	if godotenv.Load() != nil {
-		log.Fatal("Error loading .env file")
-	}
 
 	MONGODB_URI := os.Getenv("MONGODB_URI")
 
@@ -256,9 +255,14 @@ func (s *Server) recoverFromMongo() {
 
 func NewServer(addr string, port int) *Server {
 	s := recoverFromDisk(addr, port)
+	if godotenv.Load() != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	s.secret = []byte(os.Getenv("JWT_SECRET"))
 	log.Printf("Recovered %d log\n", s.LastCommit)
 
-	// s.recoverFromMongo()
+	s.recoverFromMongo()
 
 	log.Println("Started")
 
@@ -331,10 +335,4 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 	s.docs.Unlock()
 
 	http.ServeFile(w, r, "index.html")
-}
-
-func (s *Server) login(w http.ResponseWriter, r *http.Request) {
-}
-
-func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 }

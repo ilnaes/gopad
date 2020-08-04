@@ -1,7 +1,18 @@
 package internal
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Credentials struct {
@@ -10,8 +21,44 @@ type Credentials struct {
 }
 
 type Claims struct {
-	Uid int64 `json:"uid"`
+	Uid string `json:"uid"`
 	jwt.StandardClaims
+}
+
+func signJWT(claim Claims, secret []byte) (string, error) {
+	claim.ExpiresAt = time.Now().Add(time.Hour * 24 * 30).Unix()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
+	return token.SignedString(secret)
+}
+
+func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+}
+
+func (s *Server) register(w http.ResponseWriter, r *http.Request) {
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	var user Credentials
+	if json.Unmarshal(reqBody, &user) != nil {
+		http.Error(w, "Bad format", http.StatusForbidden)
+	}
+
+	filter := bson.D{{"username", user.Username}}
+	update := bson.D{{"$setOnInsert", bson.D{{"password", user.Password}}}}
+	opts := options.Update().SetUpsert(true)
+
+	res, err := s.users.UpdateOne(context.TODO(), filter, update, opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if res.UpsertedCount != 0 {
+		id := res.UpsertedID.(primitive.ObjectID).Hex()
+		token, _ := signJWT(Claims{
+			Uid: id,
+		}, s.secret)
+		fmt.Fprintf(w, token)
+	} else {
+		http.Error(w, "Already exists", http.StatusForbidden)
+	}
 }
 
 // func Login(w http.ResponseWriter, r *http.Request) {
