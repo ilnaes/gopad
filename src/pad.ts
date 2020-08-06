@@ -38,7 +38,7 @@ export type Req = {
   Ops?: Op[]
 }
 
-export function start(docId: number, uid: string): Pad {
+export function start(docId: number, uid: string, token: string): Pad {
   const textarea: HTMLTextAreaElement = document.getElementsByTagName(
     'textarea'
   )[0]
@@ -53,7 +53,7 @@ export function start(docId: number, uid: string): Pad {
       textarea.selectionEnd = s + 1
     }
   }
-  return new Pad(docId, uid)
+  return new Pad(docId, uid, token)
 }
 
 export class Pad {
@@ -61,6 +61,7 @@ export class Pad {
   docId: number
   uid: string
   session: number
+  token: string
 
   pollStart = false
   commitStart = false
@@ -78,10 +79,12 @@ export class Pad {
   ws?: WebSocket
   worker: Worker
 
-  constructor(docId: number, uid: string) {
+  constructor(docId: number, uid: string, token: string) {
     this.docId = docId
     this.session = Math.floor(Math.random() * 1e18)
     this.uid = uid
+
+    this.token = token
 
     this.worker = new DiffWorker()
     this.worker.onmessage = (e) => {
@@ -103,7 +106,7 @@ export class Pad {
 
     this.ws.onopen = () => {
       if (this.ws !== undefined) {
-        this.ws.send(this.uid.toString())
+        this.ws.send(this.token)
         this.poll()
         this.commit()
       }

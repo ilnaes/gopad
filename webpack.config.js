@@ -1,15 +1,15 @@
 const path = require('path')
-// var HtmlWebpackPlugin = require('html-webpack-plugin')
+var HtmlWebpackPlugin = require('html-webpack-plugin')
 
 module.exports = {
   mode: 'development',
   entry: './src/index.tsx',
   devtool: 'inline-source-map',
-  // plugins: [
-  //   new HtmlWebpackPlugin({
-  //     template: './src/template.html',
-  //   }),
-  // ],
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/template.html',
+    }),
+  ],
   module: {
     rules: [
       // Handle TypeScript

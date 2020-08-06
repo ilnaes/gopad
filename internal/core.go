@@ -22,7 +22,7 @@ func Run(port int) {
 	r.HandleFunc("/register", server.register).Methods("PUT")
 	r.PathPrefix("/dist/").Handler(http.StripPrefix("/dist/", http.FileServer(http.Dir("dist/")))).Methods("GET")
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
+		http.ServeFile(w, r, "dist/index.html")
 	}).Methods("GET")
 
 	srv := &http.Server{

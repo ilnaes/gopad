@@ -95,11 +95,10 @@ func (s *Server) update() {
 		if len(tmp) > 0 {
 			req := make([]interface{}, len(tmp))
 			for i, x := range tmp {
-				// log.Printf("Saving req %d\n", x.Num)
 				req[i] = interface{}(x)
 			}
 
-			// s.db.InsertMany(context.TODO(), req)
+			s.db.InsertMany(context.TODO(), req)
 
 			s.docs.Lock()
 			for _, r := range tmp {
@@ -112,8 +111,8 @@ func (s *Server) update() {
 
 		if i%SnapMult == 0 {
 			// snapshot
-			// s.saveToDisk()
-			// log.Println("Saved to disk")
+			s.saveToDisk()
+			log.Println("Saved to disk")
 		}
 		i++
 	}
@@ -192,7 +191,6 @@ func (s *Server) NewClient(docId int64, uid string, conn *websocket.Conn) Client
 }
 
 func (s *Server) recoverFromMongo() {
-
 	MONGODB_URI := os.Getenv("MONGODB_URI")
 
 	opt := options.Client().ApplyURI(MONGODB_URI)
@@ -308,7 +306,13 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := s.NewClient(docId, string(res), conn)
+	uid, ok := s.parseJWT(string(res))
+	if !ok {
+		conn.Close()
+		return
+	}
+
+	c := s.NewClient(docId, uid, conn)
 	c.interact()
 }
 
@@ -319,5 +323,5 @@ func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.ServeFile(w, r, "index.html")
+	http.ServeFile(w, r, "dist/index.html")
 }
