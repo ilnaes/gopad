@@ -16,7 +16,7 @@ export type Op = {
   Type: string
   Seq?: number
 
-  Uid: number
+  Uid: string
   Session: number
 }
 
@@ -31,17 +31,14 @@ export type Res = {
 export type Req = {
   IsQuery: boolean
   DocId: number
-  Uid: number
+  Uid: string
   View: number
 
   Seq: number
   Ops?: Op[]
 }
 
-export function start(): Pad {
-  const split = document.location.pathname.lastIndexOf('/')
-  const docId = parseInt(document.location.pathname.slice(split + 1))
-
+export function start(docId: number, uid: string): Pad {
   const textarea: HTMLTextAreaElement = document.getElementsByTagName(
     'textarea'
   )[0]
@@ -56,13 +53,13 @@ export function start(): Pad {
       textarea.selectionEnd = s + 1
     }
   }
-  return new Pad(docId)
+  return new Pad(docId, uid)
 }
 
 export class Pad {
   alive = true
   docId: number
-  uid: number
+  uid: string
   session: number
 
   pollStart = false
@@ -81,12 +78,11 @@ export class Pad {
   ws?: WebSocket
   worker: Worker
 
-  constructor(docId: number) {
+  constructor(docId: number, uid: string) {
     this.docId = docId
     this.session = Math.floor(Math.random() * 1e18)
-    this.uid = Math.floor(Math.random() * 1e18)
+    this.uid = uid
 
-    // this.worker = new Worker('../static/worker.js', { type: 'module' })
     this.worker = new DiffWorker()
     this.worker.onmessage = (e) => {
       this.handleWorker(e)

@@ -7,7 +7,7 @@ import {
   Route,
   Link,
 } from 'react-router-dom'
-import { Hello } from './editpage'
+import { EditPage } from './editpage'
 import { UserProvider, UserContext } from '../contexts/usercontext'
 import LoginPage from './login'
 
@@ -21,7 +21,7 @@ export function App(): JSX.Element {
               <LoginPage />
             </Route>
             <PrivateRoute path="/edit/:id">
-              <Hello />
+              <EditPage />
             </PrivateRoute>
             <Route path="/">
               <div>Index!</div>

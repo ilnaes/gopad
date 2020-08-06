@@ -19,7 +19,7 @@ export type WorkerRet = {
 
 export type WorkerArg = {
   ops: Op[][]
-  uid: number
+  uid: string
   session: number
   base: string
   view: number

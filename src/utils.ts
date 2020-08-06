@@ -1,7 +1,7 @@
 import { Op } from './pad'
 
 // diff that turns s1 -> s2
-export function diff(s1: string, s2: string, uid: number, sess: number): Op[] {
+export function diff(s1: string, s2: string, uid: string, sess: number): Op[] {
   // trim beginning
   let delta = 0
   for (let i = 0; i < Math.min(s1.length, s2.length); i++) {
