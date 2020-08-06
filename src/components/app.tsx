@@ -17,8 +17,11 @@ export function App(): JSX.Element {
       <Router>
         <div>
           <Switch>
+            <Route path="/register">
+              <LoginPage register={true} />
+            </Route>
             <Route path="/login">
-              <LoginPage />
+              <LoginPage register={false} />
             </Route>
             <PrivateRoute path="/edit/:id">
               <EditPage />
