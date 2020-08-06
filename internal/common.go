@@ -21,7 +21,7 @@ const (
 type Request struct {
 	IsQuery bool
 	DocId   int64
-	Uid     int64
+	Uid     string
 
 	Ops  []Op
 	View int
@@ -45,16 +45,16 @@ type Op struct {
 	Ch   byte
 	Seq  int // purely for client-side
 
-	Uid     int64
+	Uid     string
 	Session int64
 }
 
 type DocMeta struct {
 	Doc Doc
 
-	Log         [][]Op        // one update is a collection of ops from one diff
-	NextSeq     map[int64]int // expected next seq from user
-	AppliedSeq  map[int64]int // all seqs up to this from user have been applied
+	Log         [][]Op         // one update is a collection of ops from one diff
+	NextSeq     map[string]int // expected next seq from user
+	AppliedSeq  map[string]int // all seqs up to this from user have been applied
 	NextDiscard int
 	DocId       int64
 

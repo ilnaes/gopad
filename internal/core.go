@@ -16,14 +16,14 @@ func Run(port int) {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/edit/{docid}", server.edit)
+	r.HandleFunc("/edit/{docid}", server.edit).Methods("GET")
 	r.HandleFunc("/ws/{docid}", server.ws)
-	r.HandleFunc("/login", server.login)
-	r.HandleFunc("/register", server.register)
-	r.HandleFunc("/index", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/login", server.login).Methods("POST")
+	r.HandleFunc("/register", server.register).Methods("PUT")
+	r.PathPrefix("/dist/").Handler(http.StripPrefix("/dist/", http.FileServer(http.Dir("dist/")))).Methods("GET")
+	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
-	})
-	r.PathPrefix("/dist/").Handler(http.StripPrefix("/dist/", http.FileServer(http.Dir("dist/"))))
+	}).Methods("GET")
 
 	srv := &http.Server{
 		Handler: r,

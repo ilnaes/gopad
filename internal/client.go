@@ -10,7 +10,7 @@ import (
 type Client struct {
 	s     *Server
 	doc   *DocMeta
-	uid   int64
+	uid   string
 	conn  *websocket.Conn
 	alive bool
 

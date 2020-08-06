@@ -181,7 +181,7 @@ func recoverFromDisk(addr string, port int) *Server {
 	return s
 }
 
-func (s *Server) NewClient(docId, uid int64, conn *websocket.Conn) Client {
+func (s *Server) NewClient(docId int64, uid string, conn *websocket.Conn) Client {
 	return Client{
 		s:     s,
 		doc:   s.Docs[docId],
@@ -240,8 +240,8 @@ func (s *Server) recoverFromMongo() {
 					DocId: req.DocId,
 				},
 				Log:        [][]Op{},
-				NextSeq:    make(map[int64]int, 0),
-				AppliedSeq: make(map[int64]int, 0),
+				NextSeq:    make(map[string]int, 0),
+				AppliedSeq: make(map[string]int, 0),
 				DocId:      req.DocId,
 			}
 		}
@@ -277,13 +277,22 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.docs.RLock()
+	s.docs.Lock()
 	if _, ok := s.Docs[docId]; !ok {
-		http.Error(w, "Malformed id", http.StatusBadRequest)
-		s.docs.RUnlock()
-		return
+		s.Docs[docId] = &DocMeta{
+			Doc: Doc{
+				Body:  []byte{},
+				View:  0,
+				DocId: docId,
+			},
+
+			Log:        [][]Op{},
+			NextSeq:    make(map[string]int, 0),
+			AppliedSeq: make(map[string]int, 0),
+			DocId:      docId,
+		}
 	}
-	s.docs.RUnlock()
+	s.docs.Unlock()
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -298,41 +307,17 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-	uid, err := strconv.ParseInt(string(res), 10, 64)
-	if err != nil {
-		log.Println(err)
-		conn.Close()
-		return
-	}
 
-	c := s.NewClient(docId, uid, conn)
+	c := s.NewClient(docId, string(res), conn)
 	c.interact()
 }
 
 func (s *Server) edit(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(mux.Vars(r)["docid"], 10, 64)
+	_, err := strconv.ParseInt(mux.Vars(r)["docid"], 10, 64)
 	if err != nil {
 		http.Error(w, "Malformed id", http.StatusBadRequest)
 		return
 	}
-
-	s.docs.Lock()
-
-	if _, ok := s.Docs[id]; !ok {
-		s.Docs[id] = &DocMeta{
-			Doc: Doc{
-				Body:  []byte{},
-				View:  0,
-				DocId: id,
-			},
-
-			Log:        [][]Op{},
-			NextSeq:    make(map[int64]int, 0),
-			AppliedSeq: make(map[int64]int, 0),
-			DocId:      id,
-		}
-	}
-	s.docs.Unlock()
 
 	http.ServeFile(w, r, "index.html")
 }
