@@ -49,8 +49,8 @@ func (s *Server) parseJWT(token string) (string, bool) {
 	return "", false
 }
 
-func (s *Server) middleware(next func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Authorization")
 		extractedToken := strings.Split(token, "Bearer ")
 
@@ -63,11 +63,11 @@ func (s *Server) middleware(next func(http.ResponseWriter, *http.Request)) http.
 
 		if ok {
 			ctx := context.WithValue(r.Context(), "Uid", uid)
-			next(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			http.Error(w, "Invalid token", http.StatusForbidden)
 		}
-	}
+	})
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {

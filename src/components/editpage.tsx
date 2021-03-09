@@ -4,8 +4,12 @@ import { UserContext } from '../contexts/usercontext'
 import { start, Pad } from '../pad'
 import { useParams } from 'react-router-dom'
 
+interface ParamType {
+  id: string
+}
+
 export function EditPage(): JSX.Element {
-  const { id } = useParams()
+  const { id } = useParams<ParamType>()
   const [pad, setState] = useState({} as Pad)
   const state = useContext(UserContext)
 

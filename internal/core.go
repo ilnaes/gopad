@@ -18,9 +18,14 @@ func Run(port int) {
 
 	r.HandleFunc("/edit/{docid}", server.edit).Methods("GET")
 	r.HandleFunc("/ws/{docid}", server.ws)
+
 	r.HandleFunc("/login", server.login).Methods("POST")
 	r.HandleFunc("/register", server.register).Methods("PUT")
 	r.PathPrefix("/dist/").Handler(http.StripPrefix("/dist/", http.FileServer(http.Dir("dist/")))).Methods("GET")
+
+	r.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello world!")
+	})
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "dist/index.html")
 	}).Methods("GET")
