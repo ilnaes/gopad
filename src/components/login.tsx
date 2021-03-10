@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useContext, useState } from 'react'
 import { UserContext, UserState } from '../contexts/usercontext'
-import * as jwtDecode from 'jwt-decode'
+import jwtDecode from 'jwt-decode'
 import { useLocation } from 'react-router-dom'
 
 type LocationState = {
@@ -16,6 +16,8 @@ type LoginProps = {
 
 export default function LoginPage(props: LoginProps): JSX.Element {
   const loc = useLocation<LocationState>()
+
+  console.log('HERE')
 
   const { updateUser } = useContext(UserContext)
   const [username, setUsername] = useState('')

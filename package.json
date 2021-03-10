@@ -34,7 +34,6 @@
     "worker-loader": "^3.0.8"
   },
   "dependencies": {
-    "@types/jwt-decode": "^2.2.1",
     "jwt-decode": "^3.1.2",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",

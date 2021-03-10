@@ -1,9 +1,6 @@
 import { Op } from './pad'
 import { diff, applyPos, applyString, xform } from './utils'
 
-// We alias self to ctx and give it our newly created type
-const ctx: Worker = self as any
-
 export type WorkerRet = {
   val: string
   seq: number | undefined
@@ -38,7 +35,7 @@ export type WorkerArg = {
 // delta - current outstanding op commit
 // curr - applyString(delta, base)
 // val - textbox value
-ctx.addEventListener('message', (e: MessageEvent) => {
+addEventListener('message', (e: MessageEvent) => {
   const args: WorkerArg = e.data
 
   // delta1 is base -> val
@@ -82,7 +79,7 @@ ctx.addEventListener('message', (e: MessageEvent) => {
     delta1 = diff(args.curr, val1, args.uid, args.session)
   }
 
-  ctx.postMessage({
+  postMessage({
     val: args.val,
     seq: seq1,
     view: args.view + args.ops.length,
